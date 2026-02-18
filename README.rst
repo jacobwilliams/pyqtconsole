@@ -87,9 +87,21 @@ must be shaped as follows:
         'numbers':    hl.format('brown'),
         'inprompt':   hl.format('darkBlue', 'bold'),
         'outprompt':  hl.format('darkRed', 'bold'),
+        'fstring':    hl.format('darkCyan', 'bold'),
+        'escape':     hl.format('darkorange', 'bold'),
     })
 
 All keys are optional and default to the value shown above if left unspecified.
+
+Clear console
+-------------
+
+A local method, named `clear()`, is available to clear the input screen and reset the line numbering.
+Enable it by pushing the method into the available namespace in the console:
+
+.. code-block:: python
+
+   console.interpreter.locals["clear"] = console.clear
 
 Shell commands
 --------------
