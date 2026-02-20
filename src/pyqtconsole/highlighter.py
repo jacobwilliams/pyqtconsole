@@ -61,9 +61,10 @@ class PythonHighlighter(QSyntaxHighlighter):
     # Python keywords
     keywords = keyword.kwlist
 
-    def __init__(self, document, formats=None):
+    def __init__(self, document, formats=None, console=None):
         QSyntaxHighlighter.__init__(self, document)
 
+        self.console = console
         self.styles = styles = dict(STYLES, **(formats or {}))
 
         # Multi-line strings (expression, flag, style)
@@ -128,6 +129,14 @@ class PythonHighlighter(QSyntaxHighlighter):
     def highlightBlock(self, text):
         """Apply syntax highlighting to the given block of text.
         """
+        # Only highlight input text (after prompt position), not output
+        if self.console:
+            block = self.currentBlock()
+            block_pos = block.position()
+            # If this block is before the prompt position, don't highlight it
+            if block_pos < self.console._prompt_pos:
+                return
+
         s = self.styles['string']
         # Find all positions inside strings (using Python string indices)
         string_positions = {
