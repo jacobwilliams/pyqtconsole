@@ -16,7 +16,7 @@ def change_pygments_style(style):
     Example styles include:
       'default', 'monokai', 'vim', 'friendly', 'colorful',
       'autumn', 'rainbow_dash', and 'paraiso-dark'."""
-    console.highlighter.setPygmentsStyle(style)
+    console.setPygmentsStyle(style)
 
 
 if __name__ == '__main__':
