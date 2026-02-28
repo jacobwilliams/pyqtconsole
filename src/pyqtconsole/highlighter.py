@@ -1,7 +1,9 @@
 from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter)
 
-import keyword
 import re
+from pygments import lex
+from pygments.lexers import PythonLexer
+from pygments.token import Token
 
 
 def format(color, style=''):
@@ -56,247 +58,167 @@ class PromptHighlighter(object):
 
 
 class PythonHighlighter(QSyntaxHighlighter):
-    """Syntax highlighter for the Python language.
+    """Syntax highlighter for the Python language using Pygments.
     """
-    # Python keywords
-    keywords = keyword.kwlist
 
     def __init__(self, document, formats=None):
         QSyntaxHighlighter.__init__(self, document)
 
-        self.styles = styles = dict(STYLES, **(formats or {}))
+        self.styles = dict(STYLES, **(formats or {}))
+        self.lexer = PythonLexer()
 
-        # Multi-line strings (expression, flag, style)
-        # FIXME: The triple-quotes in these two lines will mess up the
-        # syntax highlighting from this point onward
-        self.tri_single = (re.compile("'''"), 1, styles['string2'])
-        self.tri_double = (re.compile('"""'), 2, styles['string2'])
+        # Map Pygments token types to our text formats
+        styles = self.styles
+        self.token_formats = {
+            Token.Keyword: styles['keyword'],
+            Token.Keyword.Constant: styles['keyword'],
+            Token.Keyword.Declaration: styles['keyword'],
+            Token.Keyword.Namespace: styles['keyword'],
+            Token.Keyword.Pseudo: styles['keyword'],
+            Token.Keyword.Reserved: styles['keyword'],
+            Token.Keyword.Type: styles['keyword'],
+            Token.Name.Builtin: styles['keyword'],
 
-        rules = []
+            Token.Name.Class: styles['defclass'],
+            Token.Name.Function: styles['defclass'],
+            Token.Name.Decorator: styles['defclass'],
 
-        # Keyword, operator, and brace rules
-        rules += [(r'\b%s\b' % w, 0, styles['keyword'])
-                  for w in PythonHighlighter.keywords]
+            Token.String: styles['string'],
+            Token.String.Double: styles['string'],
+            Token.String.Single: styles['string'],
+            Token.String.Doc: styles['string2'],
+            Token.String.Escape: styles['escape'],
+            Token.String.Interpol: styles['fstring'],
+            Token.String.Affix: styles['string'],
 
-        # All other rules
-        rules += [
-            # 'self'
-            # (r'\bself\b', 0, STYLES['self']),
+            Token.Number: styles['numbers'],
+            Token.Number.Integer: styles['numbers'],
+            Token.Number.Float: styles['numbers'],
+            Token.Number.Hex: styles['numbers'],
+            Token.Number.Oct: styles['numbers'],
+            Token.Number.Bin: styles['numbers'],
 
-            # Double-quoted string, possibly containing escape sequences
-            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, styles['string']),
-            # Single-quoted string, possibly containing escape sequences
-            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, styles['string']),
+            Token.Comment: styles['comment'],
+            Token.Comment.Single: styles['comment'],
+            Token.Comment.Multiline: styles['comment'],
 
-            # 'def' followed by an identifier
-            (r'\bdef\b\s*(\w+)', 1, styles['defclass']),
-            # 'class' followed by an identifier
-            (r'\bclass\b\s*(\w+)', 1, styles['defclass']),
+            Token.Operator: styles['operator'],
+            Token.Punctuation: styles['brace'],
+        }
 
-            # From '#' until a newline
-            (r'#[^\n]*', 0, styles['comment']),
-
-            # Numeric literals
-            (r'\b[+-]?[0-9]+[lL]?\b', 0, styles['numbers']),
-            (r'\b[+-]?0[xX][0-9A-Fa-f]+[lL]?\b', 0, styles['numbers']),
-            (r'\b[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b', 0,
-             styles['numbers']),
-        ]
-
-        # Build a regex object for each pattern
-        self.rules = [(re.compile(pat), index, fmt)
-                      for (pat, index, fmt) in rules]
-
-        self.fstring_pattern = re.compile(
-            r"[fF][rR]?(['\"])([^'\"\\]*(\\.[^'\"\\]*)*?)\1")
-
-        self.string_pattern = re.compile(r"(['\"])([^'\"\\]*(\\.[^'\"\\]*)*?)\1")
-        self.escape_pattern = re.compile(
-            r'\\(?:[\\\'\"\'abfnrtv0]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|'
-            r'U[0-9a-fA-F]{8}|N\{[^}]+\}|[0-7]{1,3})'
-        )
+        # Cache for document tokenization
+        self._token_cache = {}
+        self._cached_text = None
 
     def _to_utf16_offset(self, text, position):
         """Convert Python string position to UTF-16 offset for Qt.
 
-        Qt uses UTF-16 encoding internally, where some characters (like emoji)
-        take 2 code units.
-        This converts Python string indices to UTF-16 positions.
+        Qt uses UTF-16 encoding internally, where some characters
+        (like emoji) take 2 code units. This converts Python string
+        indices to UTF-16 positions.
         """
         return len(text[:position].encode('utf-16-le')) // 2
 
     def highlightBlock(self, text):
-        """Apply syntax highlighting to the given block of text.
+        """Apply syntax highlighting to the given block of text using Pygments.
         """
-        s = self.styles['string']
-        c = self.styles['comment']
+        if not text:
+            return
 
-        # Find all positions inside strings (using Python string indices)
-        string_positions = set()
-        for expression, nth, fmt in self.rules:
-            if fmt == s:
-                for m in expression.finditer(text):
-                    string_positions.update(range(m.start(nth), m.end(nth)))
+        # Get the full document text
+        doc_text = self.document().toPlainText()
 
-        # Find where the real comment starts (first # not inside a string)
-        comment_start = None
-        for i, char in enumerate(text):
-            if char == '#' and i not in string_positions:
-                comment_start = i
-                break
+        # Retokenize if document changed
+        if doc_text != self._cached_text:
+            self._cached_text = doc_text
+            self._token_cache = self._tokenize_document(doc_text)
 
-        # Build set of positions inside the comment
-        comment_positions = set()
-        if comment_start is not None:
-            comment_positions = set(range(comment_start, len(text)))
+        # Find which line we're on
+        current_block = self.currentBlock()
+        block_number = current_block.blockNumber()
 
-        # Apply formatting, skipping non-string/non-comment
-        # rules inside strings/comments
-        for expression, nth, format in self.rules:
-            # Skip the comment rule - we'll handle it manually below
-            if format == c:
+        # Apply formatting for this block's tokens
+        if block_number in self._token_cache:
+            for start_pos, length, format_obj in self._token_cache[block_number]:
+                self.setFormat(start_pos, length, format_obj)
+
+    def _tokenize_document(self, text):
+        """Tokenize the entire document and organize by line number."""
+        tokens_by_line = {}
+
+        if not text:
+            return tokens_by_line
+
+        # Split document into lines to know line boundaries
+        lines = text.split('\n')
+        line_positions = [0]  # Start position of each line
+        for line in lines[:-1]:
+            line_positions.append(line_positions[-1] + len(line) + 1)
+
+        # Tokenize entire document
+        position = 0
+        for token_type, token_value in lex(text, self.lexer):
+            if not token_value:
                 continue
-            for m in expression.finditer(text):
-                start = m.start(nth)
-                # Skip non-string formatting if it's inside a string
-                if format != s and start in string_positions:
-                    continue
-                # Skip formatting if it's inside a comment
-                if start in comment_positions:
-                    continue
-                start_pos = self._to_utf16_offset(text, start)
-                end_pos = self._to_utf16_offset(text, m.end(nth))
-                self.setFormat(start_pos, end_pos - start_pos, format)
 
-        # Manually apply comment formatting from comment_start to end of line
-        if comment_start is not None:
-            start_utf16 = self._to_utf16_offset(text, comment_start)
-            end_utf16 = self._to_utf16_offset(text, len(text))
-            self.setFormat(start_utf16, end_utf16 - start_utf16, c)
-
-        # Highlight f-string interpolations (only outside comments)
-        self.highlight_fstring_interpolations(text, comment_positions)
-
-        # Highlight escape sequences in strings (only outside comments)
-        self.highlight_escape_sequences(text, comment_positions)
-
-        self.setCurrentBlockState(0)
-
-        # Do multi-line strings
-        in_multiline = self.match_multiline(text, *self.tri_single)
-        if not in_multiline:
-            in_multiline = self.match_multiline(text, *self.tri_double)
-
-    def match_multiline(self, text, delimiter, in_state, style):
-        """Do highlighting of multi-line strings. ``delimiter`` should be a
-        ``re.Pattern`` for triple-single-quotes or triple-double-quotes, and
-        ``in_state`` should be a unique integer to represent the corresponding
-        state changes when inside those strings. Returns True if we're still
-        inside a multi-line string when this function is finished.
-        """
-        # If inside triple-single quotes, start at 0
-        if self.previousBlockState() == in_state:
-            start = 0
-            add = 0
-        # Otherwise, look for the delimiter on this line
-        else:
-            m = delimiter.search(text)
-            if m:
-                start = m.start()
-                # Move past this match
-                add = m.end() - m.start()
-            else:
-                start = -1
-                add = -1
-
-        # As long as there's a delimiter match on this line...
-        while start >= 0:
-            # Look for the ending delimiter
-            m = delimiter.search(text, start + add)
-            # Ending delimiter on this line?
-            if m and (m.start() >= add):
-                # length = end - start + add + m.end() - m.start()
-                length = add + m.end() - start
-                self.setCurrentBlockState(0)
-            # No; multi-line string
-            else:
-                self.setCurrentBlockState(in_state)
-                length = len(text) - start + add
-            # Apply formatting - convert to UTF-16 positions
-            start_utf16 = self._to_utf16_offset(text, start)
-            end_utf16 = self._to_utf16_offset(text, start + length)
-            self.setFormat(start_utf16, end_utf16 - start_utf16, style)
-            # Look for the next match
-            m = delimiter.search(text, start + length)
-            if m:
-                start = m.start()
-            else:
-                break
-
-        # Return True if still inside a multi-line string, False otherwise
-        return self.currentBlockState() == in_state
-
-    def highlight_fstring_interpolations(self, text, comment_positions=None):
-        """Highlight f-string interpolations (the {} parts).
-        """
-        if comment_positions is None:
-            comment_positions = set()
-        for m in self.fstring_pattern.finditer(text):
-            # Skip if this f-string starts inside a comment
-            if m.start() in comment_positions:
+            format_to_apply = self._get_format_for_token(token_type)
+            if not format_to_apply:
+                position += len(token_value)
                 continue
-            string_content = m.group(2)
-            ln = len(string_content)
-            content_start = m.start(2)
 
-            i = 0
-            while i < ln:
-                if string_content[i] == '{':
-                    # Skip escaped braces {{
-                    if i + 1 < ln and string_content[i + 1] == '{':
-                        i += 2
-                        continue
+            # Find which line(s) this token is on
+            token_start = position
+            token_end = position + len(token_value)
 
-                    # Find matching closing brace
-                    brace_count = 1
-                    j = i + 1
-                    while j < ln and brace_count > 0:
-                        if string_content[j:j+2] == '}}':
-                            j += 2  # Skip escaped }}
-                        elif string_content[j] == '{':
-                            brace_count += 1
-                            j += 1
-                        elif string_content[j] == '}':
-                            brace_count -= 1
-                            j += 1
-                        else:
-                            j += 1
-
-                    if brace_count == 0:
-                        start_utf16 = self._to_utf16_offset(text,
-                                                            content_start + i)
-                        end_utf16 = self._to_utf16_offset(text, content_start + j)
-                        self.setFormat(start_utf16, end_utf16 - start_utf16,
-                                       self.styles['fstring'])
-                        i = j
-                    else:
-                        i += 1
+            # Binary search for starting line
+            line_num = 0
+            for i, line_start in enumerate(line_positions):
+                if token_start >= line_start:
+                    line_num = i
                 else:
-                    i += 1
+                    break
 
-    def highlight_escape_sequences(self, text, comment_positions=None):
-        """Highlight escape sequences in strings.
-        """
-        if comment_positions is None:
-            comment_positions = set()
-        for m in self.string_pattern.finditer(text):
-            # Skip if this string starts inside a comment
-            if m.start() in comment_positions:
-                continue
-            content_start = m.start(2)
-            for esc in self.escape_pattern.finditer(m.group(2)):
-                start_utf16 = self._to_utf16_offset(text, content_start +
-                                                    esc.start())
-                end_utf16 = self._to_utf16_offset(text, content_start + esc.end())
-                self.setFormat(start_utf16, end_utf16 - start_utf16,
-                               self.styles['escape'])
+            # Handle tokens that may span multiple lines
+            remaining = token_value
+            while remaining and line_num < len(lines):
+                line_start = line_positions[line_num]
+                line_text = lines[line_num]
+
+                # Calculate position within this line
+                pos_in_line = token_start - line_start
+                chars_in_line = min(len(remaining),
+                                    len(line_text) - pos_in_line)
+
+                if chars_in_line > 0:
+                    utf16_start = self._to_utf16_offset(line_text, pos_in_line)
+                    utf16_end = self._to_utf16_offset(line_text,
+                                                      pos_in_line + chars_in_line)
+
+                    if line_num not in tokens_by_line:
+                        tokens_by_line[line_num] = []
+                    tokens_by_line[line_num].append(
+                        (utf16_start, utf16_end - utf16_start, format_to_apply))
+
+                # Move to next line
+                remaining = remaining[chars_in_line + 1:]  # +1 for newline
+                if line_num + 1 < len(line_positions):
+                    token_start = line_positions[line_num + 1]
+                else:
+                    token_start = token_end
+                line_num += 1
+
+            position = token_end
+
+        return tokens_by_line
+
+    def _get_format_for_token(self, token_type):
+        """Find the most specific format for a token type."""
+        format_to_apply = None
+        current_type = token_type
+        while current_type and not format_to_apply:
+            format_to_apply = self.token_formats.get(current_type)
+            if hasattr(current_type, 'parent'):
+                current_type = current_type.parent
+            else:
+                current_type = None
+        return format_to_apply
