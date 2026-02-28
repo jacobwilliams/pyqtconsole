@@ -34,6 +34,7 @@ STYLES = {
     'outprompt': format('darkRed', 'bold'),
     'fstring': format('darkCyan', 'bold'),
     'escape': format('darkorange', 'bold'),
+    'shellcmd': format('darkCyan', 'italic'),
 }
 
 
@@ -61,11 +62,25 @@ class PythonHighlighter(QSyntaxHighlighter):
     # Python keywords
     keywords = keyword.kwlist
 
-    def __init__(self, document, formats=None, console=None):
+    def __init__(self, document, formats=None, shell_cmd_prefix=None, console=None):
+        """Initialize the syntax highlighter.
+
+        Args:
+            :param document: The QTextDocument to apply syntax
+                highlighting to.
+            :type document: QTextDocument
+            :param formats: Optional dict mapping style names to
+                QTextCharFormat objects.
+            :type formats: dict, None
+            :param shell_cmd_prefix: Optional string prefix to identify
+                shell command lines.
+            :type shell_cmd_prefix: str, None
+        """
         QSyntaxHighlighter.__init__(self, document)
 
         self.console = console
         self.styles = styles = dict(STYLES, **(formats or {}))
+        self.shell_cmd_prefix = shell_cmd_prefix
 
         # Multi-line strings (expression, flag, style)
         # FIXME: The triple-quotes in these two lines will mess up the
@@ -136,6 +151,26 @@ class PythonHighlighter(QSyntaxHighlighter):
             # If this block is before the prompt position, don't highlight it
             if block_pos < self.console._prompt_pos:
                 return
+        # Check if this is a shell command line
+        if self.shell_cmd_prefix and \
+                text.lstrip().startswith(self.shell_cmd_prefix):
+            # Highlight the entire line as a shell command
+            start_utf16 = self._to_utf16_offset(text, 0)
+            end_utf16 = self._to_utf16_offset(text, len(text))
+            self.setFormat(start_utf16, end_utf16 - start_utf16,
+                           self.styles['shellcmd'])
+            self.setCurrentBlockState(0)
+            return
+
+        s = self.styles['string']
+        # Find all positions inside strings (using Python string indices)
+        string_positions = {
+            pos
+            for expression, nth, fmt in self.rules
+            if fmt == s
+            for m in expression.finditer(text)
+            for pos in range(m.start(nth), m.end(nth))
+        }
 
         s = self.styles['string']
         c = self.styles['comment']
