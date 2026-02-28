@@ -2,7 +2,10 @@ from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter)
 
 import re
 from pygments import lex
-from pygments.lexers import PythonLexer
+try:
+    from ipython_pygments_lexers import IPythonLexer as PythonLexer
+except ImportError:
+    from pygments.lexers import PythonLexer
 from pygments.token import Token
 from pygments.styles import get_style_by_name
 

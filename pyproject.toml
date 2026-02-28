@@ -19,6 +19,7 @@ dependencies = [
   "qtpy",
   "jedi",
   "pygments",
+  "ipython-pygments-lexers",
 ]
 description = "Light-weight python interpreter, easy to embed into Qt applications"
 dynamic = ["version", "readme"]
