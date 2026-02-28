@@ -80,20 +80,24 @@ class PromptHighlighter(object):
         """
         if formats:
             # Legacy: use custom formats
-            self.styles = styles = dict(STYLES, **formats)
+            self.styles = dict(STYLES, **formats)
         elif pygments_style:
             # Use Pygments built-in style
-            self.styles = styles = self._build_pygments_styles(pygments_style)
+            self.styles = self._build_pygments_styles(pygments_style)
         else:
             # Default: use custom STYLES
-            self.styles = styles = dict(STYLES)
+            self.styles = dict(STYLES)
 
+        self._build_rules()
+
+    def _build_rules(self):
+        """Build regex rules using current styles."""
         self.rules = [
             # Match the prompt incase of a console
-            (re.compile(r'IN[^\:]*'), 0, styles['inprompt']),
-            (re.compile(r'OUT[^\:]*'), 0, styles['outprompt']),
+            (re.compile(r'IN[^\:]*'), 0, self.styles['inprompt']),
+            (re.compile(r'OUT[^\:]*'), 0, self.styles['outprompt']),
             # Numeric literals
-            (re.compile(r'\b[+-]?[0-9]+\b'), 0, styles['numbers']),
+            (re.compile(r'\b[+-]?[0-9]+\b'), 0, self.styles['numbers']),
         ]
 
     def _build_pygments_styles(self, style_name):
@@ -154,11 +158,7 @@ class PromptHighlighter(object):
             return
 
         # Rebuild rules with new styles
-        self.rules = [
-            (re.compile(r'IN[^\:]*'), 0, self.styles['inprompt']),
-            (re.compile(r'OUT[^\:]*'), 0, self.styles['outprompt']),
-            (re.compile(r'\b[+-]?[0-9]+\b'), 0, self.styles['numbers']),
-        ]
+        self._build_rules()
 
     def highlight(self, text):
         for expression, nth, format in self.rules:
