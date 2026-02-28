@@ -1,7 +1,13 @@
-from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter)
+from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter,
+                        QTextBlockUserData)
 
 import keyword
 import re
+
+
+class NoHighlightData(QTextBlockUserData):
+    """User data to mark blocks that should not be syntax highlighted."""
+    pass
 
 
 def format(color, style=''):
@@ -144,6 +150,9 @@ class PythonHighlighter(QSyntaxHighlighter):
     def highlightBlock(self, text):
         """Apply syntax highlighting to the given block of text.
         """
+        # Skip highlighting if block is marked as no-highlight
+        if isinstance(self.currentBlockUserData(), NoHighlightData):
+            return
         # Only highlight input text (after prompt position), not output
         if self.console:
             block = self.currentBlock()
