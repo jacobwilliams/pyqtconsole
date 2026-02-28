@@ -711,7 +711,7 @@ class PythonConsole(BaseConsole):
             outprompt=outprompt
         )
         self.highlighter = PythonHighlighter(
-            self.edit.document(), formats=formats)
+            self.edit.document(), formats=formats, console=self)
         self.interpreter = PythonInterpreter(
             self.stdin, self.stdout, locals=locals)
         self.interpreter.done_signal.connect(self._finish_command)
