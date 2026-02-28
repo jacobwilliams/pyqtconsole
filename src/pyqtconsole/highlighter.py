@@ -71,14 +71,93 @@ STYLES = {
 
 class PromptHighlighter(object):
 
-    def __init__(self, formats=None):
-        self.styles = styles = dict(STYLES, **(formats or {}))
+    def __init__(self, formats=None, pygments_style=None):
+        """Highlighter for console prompts.
+
+        Args:
+            formats: Custom format dictionary (legacy, overrides pygments_style)
+            pygments_style: Name of Pygments style to use (e.g., 'monokai')
+        """
+        if formats:
+            # Legacy: use custom formats
+            self.styles = styles = dict(STYLES, **formats)
+        elif pygments_style:
+            # Use Pygments built-in style
+            self.styles = styles = self._build_pygments_styles(pygments_style)
+        else:
+            # Default: use custom STYLES
+            self.styles = styles = dict(STYLES)
+
         self.rules = [
             # Match the prompt incase of a console
             (re.compile(r'IN[^\:]*'), 0, styles['inprompt']),
             (re.compile(r'OUT[^\:]*'), 0, styles['outprompt']),
             # Numeric literals
             (re.compile(r'\b[+-]?[0-9]+\b'), 0, styles['numbers']),
+        ]
+
+    def _build_pygments_styles(self, style_name):
+        """Build styles from Pygments theme.
+
+        Maps prompt elements to appropriate Pygments token types:
+        - inprompt -> Keyword (typically blue/bold)
+        - outprompt -> Comment (typically different color)
+        - numbers -> Number (standard)
+        """
+        from pygments.styles import get_style_by_name
+        from pygments.token import Token
+
+        style = get_style_by_name(style_name)
+        styles = {}
+
+        # Map prompt types to Pygments tokens
+        token_map = {
+            'inprompt': Token.Keyword,
+            'outprompt': Token.Comment,
+            'numbers': Token.Number,
+        }
+
+        for key, token_type in token_map.items():
+            # Walk up token hierarchy to find a style
+            current = token_type
+            style_string = None
+            while current and not style_string:
+                style_string = style.styles.get(current)
+                if hasattr(current, 'parent'):
+                    current = current.parent
+                else:
+                    current = None
+
+            if style_string:
+                fmt = pygments_style_to_format(style_string)
+                if fmt:
+                    styles[key] = fmt
+                else:
+                    # Fallback to default
+                    styles[key] = STYLES[key]
+            else:
+                # Fallback to default
+                styles[key] = STYLES[key]
+
+        return styles
+
+    def updateStyle(self, style_name):
+        """Change the Pygments color scheme for prompts.
+
+        Args:
+            style_name: Name of Pygments style (e.g., 'monokai', 'vim')
+        """
+        try:
+            self.styles = self._build_pygments_styles(style_name)
+        except Exception:
+            print(f"Error: Pygments style '{style_name}' not found.")
+            return
+
+        # Rebuild rules with new styles
+        self.rules = [
+            (re.compile(r'IN[^\:]*'), 0, self.styles['inprompt']),
+            (re.compile(r'OUT[^\:]*'), 0, self.styles['outprompt']),
+            (re.compile(r'\b[+-]?[0-9]+\b'), 0, self.styles['numbers']),
         ]
 
     def highlight(self, text):

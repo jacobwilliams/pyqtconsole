@@ -34,7 +34,7 @@ class BaseConsole(QFrame):
     """Base class for implementing a GUI console."""
 
     def __init__(self, parent=None, formats=None, shell_cmd_prefix=False,
-                 inprompt=None, outprompt=None):
+                 inprompt=None, outprompt=None, pygments_style=None):
         """
 
         :param parent: Parent widget (Defaults to None)
@@ -59,12 +59,14 @@ class BaseConsole(QFrame):
                 If None, then 'OUT[%d]: ' is used, where `%d` is formatted after
                 the current input line number.
         :type outprompt: str, None
+        :param pygments_style: Name of Pygments style (Defaults to None)
+        :type pygments_style: str, None
         """
         super().__init__(parent)
 
         self.edit = edit = InputArea()
         self.pbar = pbar = PromptArea(
-            edit, self._get_prompt_text, PromptHighlighter(formats=formats))
+            edit, self._get_prompt_text, PromptHighlighter(formats=formats, pygments_style=pygments_style))
 
         layout = QHBoxLayout()
         layout.addWidget(pbar)
@@ -709,7 +711,8 @@ class PythonConsole(BaseConsole):
             formats=formats,
             shell_cmd_prefix=shell_cmd_prefix,
             inprompt=inprompt,
-            outprompt=outprompt
+            outprompt=outprompt,
+            pygments_style=pygments_style
         )
         self.highlighter = PythonHighlighter(
             self.edit.document(), formats=formats,
@@ -720,6 +723,19 @@ class PythonConsole(BaseConsole):
         self.interpreter.exit_signal.connect(self.exit)
         self.set_auto_complete_mode(COMPLETE_MODE.DROPDOWN)
         self._thread = None
+
+    def setPygmentsStyle(self, style_name):
+        """Change the Pygments color scheme for both code and prompts.
+
+        Args:
+            style_name: Name of Pygments style (e.g., 'monokai', 'vim')
+        """
+        # Update code highlighter
+        self.highlighter.setPygmentsStyle(style_name)
+        # Update prompt highlighter
+        self.pbar.highlighter.updateStyle(style_name)
+        # Force repaint of prompt area
+        self.pbar.update()
 
     def _executing(self):
         return self.interpreter.executing()
