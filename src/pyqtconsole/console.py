@@ -702,7 +702,8 @@ class PythonConsole(BaseConsole):
     """Interactive python GUI console."""
 
     def __init__(self, parent=None, locals=None, formats=None,
-                 shell_cmd_prefix=False, inprompt=None, outprompt=None):
+                 shell_cmd_prefix=False, inprompt=None, outprompt=None,
+                 pygments_style=None):
         super().__init__(
             parent,
             formats=formats,
@@ -711,7 +712,8 @@ class PythonConsole(BaseConsole):
             outprompt=outprompt
         )
         self.highlighter = PythonHighlighter(
-            self.edit.document(), formats=formats)
+            self.edit.document(), formats=formats,
+            pygments_style=pygments_style)
         self.interpreter = PythonInterpreter(
             self.stdin, self.stdout, locals=locals)
         self.interpreter.done_signal.connect(self._finish_command)

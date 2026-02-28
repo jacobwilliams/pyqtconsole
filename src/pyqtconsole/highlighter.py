@@ -4,6 +4,7 @@ import re
 from pygments import lex
 from pygments.lexers import PythonLexer
 from pygments.token import Token
+from pygments.styles import get_style_by_name
 
 
 def format(color, style=''):
@@ -17,6 +18,35 @@ def format(color, style=''):
         _format.setFontWeight(QFont.Bold)
     if 'italic' in style:
         _format.setFontItalic(True)
+
+    return _format
+
+
+def pygments_style_to_format(style_dict):
+    """Convert a Pygments style dictionary entry to QTextCharFormat.
+
+    Pygments style format: "#rrggbb bg:#rrggbb bold italic underline"
+    """
+    if not style_dict:
+        return None
+
+    _format = QTextCharFormat()
+
+    # Parse the style string
+    parts = str(style_dict).split()
+    for part in parts:
+        if part.startswith('#'):
+            # Foreground color
+            _format.setForeground(QColor(part))
+        elif part.startswith('bg:#'):
+            # Background color
+            _format.setBackground(QColor(part[3:]))
+        elif part == 'bold':
+            _format.setFontWeight(QFont.Bold)
+        elif part == 'italic':
+            _format.setFontItalic(True)
+        elif part == 'underline':
+            _format.setFontUnderline(True)
 
     return _format
 
@@ -59,17 +89,41 @@ class PromptHighlighter(object):
 
 class PythonHighlighter(QSyntaxHighlighter):
     """Syntax highlighter for the Python language using Pygments.
+
+    Args:
+        document: The QTextDocument to highlight
+        formats: Custom format dictionary (legacy, overrides pygments_style)
+        pygments_style: Name of Pygments style to use (e.g., 'monokai',
+                       'vim', 'friendly'). Defaults to custom STYLES.
     """
 
-    def __init__(self, document, formats=None):
+    def __init__(self, document, formats=None, pygments_style=None):
         QSyntaxHighlighter.__init__(self, document)
 
-        self.styles = dict(STYLES, **(formats or {}))
         self.lexer = PythonLexer()
 
-        # Map Pygments token types to our text formats
+        # Build token formats from Pygments style or custom formats
+        if formats:
+            # Legacy: use custom formats
+            self.styles = dict(STYLES, **formats)
+            self.token_formats = self._build_custom_token_formats()
+        elif pygments_style:
+            # Use Pygments built-in style
+            self.token_formats = self._build_pygments_token_formats(
+                pygments_style)
+        else:
+            # Default: use custom STYLES
+            self.styles = dict(STYLES)
+            self.token_formats = self._build_custom_token_formats()
+
+        # Cache tokenized document by content hash
+        self._cached_doc_text = None
+        self._line_formats = {}
+
+    def _build_custom_token_formats(self):
+        """Build token format map from custom STYLES dictionary."""
         styles = self.styles
-        self.token_formats = {
+        return {
             Token.Keyword: styles['keyword'],
             Token.Keyword.Constant: styles['keyword'],
             Token.Keyword.Declaration: styles['keyword'],
@@ -106,9 +160,35 @@ class PythonHighlighter(QSyntaxHighlighter):
             Token.Punctuation: styles['brace'],
         }
 
-        # Cache tokenized document by content hash
-        self._cached_doc_text = None
+    def _build_pygments_token_formats(self, style_name):
+        """Build token format map from Pygments style."""
+        style = get_style_by_name(style_name)
+        token_formats = {}
+
+        # Convert each token type in the style
+        # style.styles is a dict: {token_type: style_string}
+        for token_type, style_string in style.styles.items():
+            fmt = pygments_style_to_format(style_string)
+            if fmt:
+                token_formats[token_type] = fmt
+
+        return token_formats
+
+    def setPygmentsStyle(self, style_name):
+        """Change the Pygments color scheme and re-highlight the document.
+
+        Args:
+            style_name: Name of Pygments style (e.g., 'monokai', 'vim')
+        """
+        try:
+            self.token_formats = self._build_pygments_token_formats(style_name)
+        except Exception:
+            print(
+                f"Error: Pygments style '{style_name}' not found.")
+            return
+        self._cached_doc_text = None  # Clear cache to force retokenization
         self._line_formats = {}
+        self.rehighlight()  # Trigger re-highlighting of entire document
 
     def _to_utf16_offset(self, text, position):
         """Convert Python string position to UTF-16 offset for Qt.
