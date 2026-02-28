@@ -106,6 +106,10 @@ class PythonHighlighter(QSyntaxHighlighter):
             Token.Punctuation: styles['brace'],
         }
 
+        # Cache tokenized document by content hash
+        self._cached_doc_text = None
+        self._line_formats = {}
+
     def _to_utf16_offset(self, text, position):
         """Convert Python string position to UTF-16 offset for Qt.
 
@@ -116,46 +120,92 @@ class PythonHighlighter(QSyntaxHighlighter):
         return len(text[:position].encode('utf-16-le')) // 2
 
     def highlightBlock(self, text):
-        """Apply syntax highlighting to the given block of text using Pygments.
-        """
-        if text:
+        """Apply syntax highlighting using Pygments."""
+        if not text:
+            return
 
-            # Always retokenize - cache would need to track content changes
-            # For a console, this is fine since we only highlight visible lines
-            formats = self._tokenize_line(text)
+        # Get document text
+        doc_text = self.document().toPlainText()
 
-            # Apply formatting for this block's tokens
-            for start_pos, length, format_obj in formats:
-                self.setFormat(start_pos, length, format_obj)
+        # Retokenize if document changed
+        if doc_text != self._cached_doc_text:
+            self._cached_doc_text = doc_text
+            self._line_formats = self._tokenize_document(doc_text)
 
-    def _tokenize_line(self, text):
-        """Tokenize a single line and return formatting information."""
-        formats = []
+        # Apply formatting for current line
+        block_num = self.currentBlock().blockNumber()
+        if block_num in self._line_formats:
+            for start, length, fmt in self._line_formats[block_num]:
+                self.setFormat(start, length, fmt)
 
-        # Add newline if not present - Pygments needs it for proper tokenization
-        text_to_lex = text if text.endswith('\n') else text + '\n'
+    def _tokenize_document(self, text):
+        """Tokenize entire document, return formatting by line number."""
+        line_formats = {}
+        if not text:
+            return line_formats
+
+        lines = text.split('\n')
+        line_starts = [0]
+        for line in lines[:-1]:
+            line_starts.append(line_starts[-1] + len(line) + 1)
 
         position = 0
-        for token_type, token_value in lex(text_to_lex, self.lexer):
+        for token_type, token_value in lex(text, self.lexer):
             if not token_value:
                 continue
 
-            # Skip the added newline in output
-            if position >= len(text):
-                break
+            fmt = self._get_format_for_token(token_type)
+            if not fmt:
+                position += len(token_value)
+                continue
 
-            format_to_apply = self._get_format_for_token(token_type)
-            if format_to_apply:
-                utf16_start = self._to_utf16_offset(text, position)
-                # Make sure we don't go past the actual text length
-                token_len = min(len(token_value), len(text) - position)
-                utf16_end = self._to_utf16_offset(text, position + token_len)
-                formats.append(
-                    (utf16_start, utf16_end - utf16_start, format_to_apply))
+            # Find which line(s) this token spans
+            token_end = position + len(token_value)
+            start_line = 0
+            for i, ls in enumerate(line_starts):
+                if position >= ls:
+                    start_line = i
+                else:
+                    break
 
-            position += len(token_value)
+            # Handle tokens across multiple lines
+            current_line = start_line
+            chars_processed = 0
 
-        return formats
+            while (chars_processed < len(token_value) and
+                   current_line < len(lines)):
+                line_start_pos = line_starts[current_line]
+                line_text = lines[current_line]
+
+                # Position within current line
+                token_pos_in_line = max(
+                    0, position + chars_processed - line_start_pos)
+
+                # How many chars of token on this line
+                remaining = len(token_value) - chars_processed
+                chars_on_line = min(remaining, len(line_text) - token_pos_in_line)
+
+                if chars_on_line > 0:
+                    utf16_start = self._to_utf16_offset(
+                        line_text, token_pos_in_line)
+                    utf16_end = self._to_utf16_offset(
+                        line_text, token_pos_in_line + chars_on_line)
+
+                    if current_line not in line_formats:
+                        line_formats[current_line] = []
+                    line_formats[current_line].append(
+                        (utf16_start, utf16_end - utf16_start, fmt))
+
+                    chars_processed += chars_on_line
+
+                # Skip the newline character
+                if chars_processed < len(token_value):
+                    chars_processed += 1
+                    current_line += 1
+
+            position = token_end
+
+        return line_formats
 
     def _get_format_for_token(self, token_type):
         """Find the most specific format for a token type."""
