@@ -7,10 +7,10 @@ import re
 def format(color, style=''):
     """Return a QTextCharFormat with the given attributes.
     """
-    _color = QColor(color)
-
     _format = QTextCharFormat()
-    _format.setForeground(_color)
+    if color is not None:
+        _color = QColor(color)
+        _format.setForeground(_color)
     if 'bold' in style:
         _format.setFontWeight(QFont.Bold)
     if 'italic' in style:
@@ -34,7 +34,7 @@ STYLES = {
     'outprompt': format('darkRed', 'bold'),
     'fstring': format('darkCyan', 'bold'),
     'escape': format('darkorange', 'bold'),
-    'shellcmd': format('darkCyan', 'italic'),
+    'shellcmd': format(None, 'bold'),
 }
 
 
