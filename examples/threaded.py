@@ -7,6 +7,10 @@ from qtpy.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QCom
 from pyqtconsole.console import PythonConsole
 from pygments.styles import get_all_styles
 
+welcome_msg = """Python Console v1.0
+Commands starting with ! are executed as shell commands
+"""
+
 
 def greet():
     print("hello world")
@@ -34,7 +38,9 @@ if __name__ == '__main__':
     style_selector.setCurrentText('monokai')
 
     # Create console
-    console = PythonConsole(shell_cmd_prefix=True, pygments_style='monokai')
+    console = PythonConsole(shell_cmd_prefix=True,
+                            welcome_message=welcome_msg,
+                            pygments_style='monokai')
     console.push_local_ns('greet', greet)
     console.push_local_ns('style', change_pygments_style)
     console.interpreter.locals["clear"] = console.clear

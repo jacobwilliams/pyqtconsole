@@ -1,4 +1,5 @@
-from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter)
+from qtpy.QtGui import (QColor, QTextCharFormat, QFont, QSyntaxHighlighter,
+                        QTextBlockUserData)
 
 import re
 from pygments import lex
@@ -10,13 +11,18 @@ from pygments.token import Token
 from pygments.styles import get_style_by_name
 
 
+class NoHighlightData(QTextBlockUserData):
+    """User data to mark blocks that should not be syntax highlighted."""
+    pass
+
+
 def format(color, style=''):
     """Return a QTextCharFormat with the given attributes.
     """
-    _color = QColor(color)
-
     _format = QTextCharFormat()
-    _format.setForeground(_color)
+    if color is not None:
+        _color = QColor(color)
+        _format.setForeground(_color)
     if 'bold' in style:
         _format.setFontWeight(QFont.Bold)
     if 'italic' in style:
@@ -69,6 +75,7 @@ STYLES = {
     'outprompt': format('darkRed', 'bold'),
     'fstring': format('darkCyan', 'bold'),
     'escape': format('darkorange', 'bold'),
+    'shellcmd': format(None, 'bold'),
 }
 
 
@@ -179,7 +186,19 @@ class PythonHighlighter(QSyntaxHighlighter):
                        'vim', 'friendly'). Defaults to custom STYLES.
     """
 
-    def __init__(self, document, formats=None, pygments_style=None):
+    def __init__(self, document, formats=None,
+                 pygments_style=None):
+        """Initialize the syntax highlighter.
+
+        :param document: The doc to apply syntax highlighting to
+        :type document: QTextDocument
+        :param formats: Optional dict mapping style names to QTextCharFormat
+                        objects
+        :type formats: dict, None
+        :param pygments_style: Name of Pygments style to use (e.g., 'monokai',
+                       'vim', 'friendly'). Defaults to custom STYLES.
+        :type pygments_style: str, None
+        """
         QSyntaxHighlighter.__init__(self, document)
 
         self.lexer = PythonLexer()
@@ -283,6 +302,10 @@ class PythonHighlighter(QSyntaxHighlighter):
 
     def highlightBlock(self, text):
         """Apply syntax highlighting using Pygments."""
+        # Skip highlighting if the block is marked with NoHighlightData
+        if isinstance(self.currentBlock().userData(), NoHighlightData):
+            return
+
         if not text:
             return
 
