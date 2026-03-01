@@ -3,7 +3,8 @@
 
 import sys
 
-from qtpy.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel
+from qtpy.QtWidgets import (QApplication, QWidget, QVBoxLayout,
+                            QHBoxLayout, QComboBox, QLabel)
 from pyqtconsole.console import PythonConsole
 from pygments.styles import get_all_styles
 

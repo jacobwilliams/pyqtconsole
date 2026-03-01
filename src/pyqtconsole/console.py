@@ -71,7 +71,9 @@ class BaseConsole(QFrame):
 
         self.edit = edit = InputArea()
         self.pbar = pbar = PromptArea(
-            edit, self._get_prompt_text, PromptHighlighter(formats=formats, pygments_style=pygments_style))
+            edit, self._get_prompt_text,
+            PromptHighlighter(formats=formats,
+                              pygments_style=pygments_style))
 
         layout = QHBoxLayout()
         layout.addWidget(pbar)
