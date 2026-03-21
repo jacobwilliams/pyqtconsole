@@ -53,16 +53,14 @@ class BaseConsole(QFrame):
         :type parent: QWidget, None
         :param formats: Dictionary of text formats (Defaults to None)
         :type formats: dict, None
-        :param shell_cmd_prefix: Prefix for shell commands (Defaults to False)
-                If set, commands starting with this prefix will be treated
+        :param shell_cmd_prefix: Enable shell commands (Defaults to False)
+                If set, commands starting with ``!`` will be treated
                 as system commands and executed using subprocess.
                 When False, no shell commands are accepted.
-                When True, the default character ``!`` is used.
-                When any string is given, that character is used instead.
                 For example, if set to True, entering ``!ls -l`` will execute the
                 command ``ls -l`` in the system shell and display its output in
                 the console.
-        :type shell_cmd_prefix: bool, str
+        :type shell_cmd_prefix: bool
         :param inprompt: Input prompt (Defaults to None)
                 If None, then 'IN [%d]: ' is used, where `%d` is formatted after
                 the current input line number.
@@ -94,10 +92,8 @@ class BaseConsole(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        if shell_cmd_prefix is True:
+        if shell_cmd_prefix:
             self.shell_cmd_prefix = "!"
-        elif isinstance(shell_cmd_prefix, str):
-            self.shell_cmd_prefix = shell_cmd_prefix
         else:
             self.shell_cmd_prefix = None
 
@@ -656,8 +652,8 @@ class BaseConsole(QFrame):
         self._last_input = source
 
         # Check if this is a system command
-        if self.shell_cmd_prefix and source.strip().startswith(self.shell_cmd_prefix):
-            self._run_system_command(source.strip()[len(self.shell_cmd_prefix) :])
+        if self.shell_cmd_prefix and source.strip().startswith("!"):
+            self._run_system_command(source.strip()[1:])
             self._more = False
             if self._last_input:
                 self._current_line += 1
