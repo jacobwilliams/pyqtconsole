@@ -19,6 +19,23 @@ In order to start working on the project:
      pip install -e .[dev]
 
 
+Testing
+~~~~~~~
+
+Testing is done through `pytest`.
+Run all the tests by simply executing:
+
+.. code-block::
+
+   pytest
+
+Test coverage can also be checked through:
+
+.. code-block::
+
+   pytest --cov=pyqtconsole
+
+
 Linting and Formatting
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -50,6 +67,7 @@ In order to make a new release, do the following:
 * Create a new tag on that (merge)commit
 
   * Tags should resemble: ``v2.3.4``
-  * The CI will publish to PyPi automatically (through a 'trusted publisher', configured in PyPi)
 
-* Finally, create a new release on Github for this tag - add the changelog info verbatim
+* Create a new release on Github for this tag - add the changelog info verbatim
+
+  * The CI will now publish to PyPi automatically (through a 'trusted publisher', configured in PyPi)

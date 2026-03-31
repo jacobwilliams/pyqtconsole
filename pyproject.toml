@@ -33,6 +33,8 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+    "pytest-cov",
+    "pytest-qt",
 ]
 
 [project.urls]
