@@ -7,8 +7,6 @@ from qtpy.QtCore import QEvent, Qt, QThread, Slot
 from qtpy.QtGui import QClipboard, QFontMetrics, QTextCursor
 from qtpy.QtWidgets import QApplication, QFrame, QHBoxLayout, QPlainTextEdit
 
-from .interpreter import PythonInterpreter
-from .stream import Stream
 from .autocomplete import COMPLETE_MODE, AutoComplete
 from .commandhistory import CommandHistory
 from .highlighter import (
@@ -17,8 +15,10 @@ from .highlighter import (
     PromptHighlighter,
     PythonHighlighter,
 )
-from .prompt import PromptArea
+from .interpreter import PythonInterpreter
 from .magic import MagicCmds
+from .prompt import PromptArea
+from .stream import Stream
 
 try:
     import jedi
