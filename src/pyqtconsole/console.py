@@ -768,7 +768,9 @@ class BaseConsole(QFrame):
         Returns:
             tuple: (text, is_output) where is_output is True for output prompts
         """
-        return self._prompt_doc[line_number]
+        if line_number < len(self._prompt_doc):
+            return self._prompt_doc[line_number]
+        return ("", False)
 
     def _remove_selected_input(self, cursor):
         if not cursor.hasSelection():
@@ -803,7 +805,7 @@ class BaseConsole(QFrame):
         self._output_inserted = False
         self._more = False
         self._current_line = -1
-        self._ps = self._ps1 % self._current_line
+        self._ps = self.in_prompt()
         self.edit.clear()
 
     # Abstract
