@@ -9,7 +9,6 @@ from qtpy.QtWidgets import QApplication, QFrame, QHBoxLayout, QPlainTextEdit
 
 from .interpreter import PythonInterpreter
 from .stream import Stream
-from .highlighter import PythonHighlighter, PromptHighlighter, NoHighlightData
 from .autocomplete import COMPLETE_MODE, AutoComplete
 from .commandhistory import CommandHistory
 from .highlighter import (
