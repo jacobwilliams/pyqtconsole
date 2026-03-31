@@ -8,6 +8,20 @@ be easy to embed in other Qt applications and comes with some examples that
 show how this can be done. The interpreter can run in a separate thread, in
 the UI main thread or in a gevent task.
 
+**Table of Contents:**
+
+* `Installing <#installing>`_
+* `Simple Usage <#simple-usage>`_
+* `Embedding <#embedding>`_
+* `Features <#features>`_
+* `Credits <#credits>`_
+
+**Also See:**
+
+* `Changelog <CHANGES.rst>`_
+* `Contributing <CONTRIBUTING.rst>`_
+
+
 Installing
 ~~~~~~~~~~
 
@@ -88,9 +102,9 @@ must be shaped as follows:
         'inprompt':   hl.format('darkBlue', 'bold'),
         'outprompt':  hl.format('darkRed', 'bold'),
         'fstring':    hl.format('darkCyan', 'bold'),
-        'escape':     hl.format('darkorange', 'bold'),
-        'shellcmd':   hl.format(None, 'bold'),
+        'escape':     hl.format('darkorange', 'bold')
         'magic':      hl.format('darkCyan', 'bold'),
+        'error':      hl.format("red", "bold"),
     })
 
 All keys are optional and default to the value shown above if left unspecified.
@@ -111,7 +125,7 @@ Shell commands
 Optionally, commands entered in the console that start with a special character (e.g. '!') will be executed as shell commands.
 The output of the command will be printed in the console.
 This feature is disabled by default, but can be enabled by setting the ``shell_cmd_prefix`` parameter when creating the console.
-For example, on a Linux or macOS system, setting `shell_cmd_prefix='!'` and entering `!ls -l` will list the files in the current directory.
+For example, on a Linux or macOS system, setting `shell_cmd_prefix=True` and entering `!ls -l` will list the files in the current directory.
 
 .. code-block:: python
 

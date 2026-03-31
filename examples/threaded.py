@@ -1,10 +1,13 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 import sys
 
 from pyqtconsole.console import PythonConsole
 from qtpy.QtWidgets import QApplication
+
+welcome_msg = """Python Console v1.0
+Commands starting with ! are executed as shell commands
+"""
 
 welcome_msg = """Python Console v1.0
 Commands starting with ! are executed as shell commands
@@ -18,19 +21,19 @@ def greet():
 def version(args=None):
     """example of a custom magic command"""
     import pyqtconsole
+
     return str(pyqtconsole.__version__)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication([])
 
-    console = PythonConsole(shell_cmd_prefix=True,
-                            welcome_message=welcome_msg)
-    console.push_local_ns('greet', greet)
+    console = PythonConsole(shell_cmd_prefix=True, welcome_message=welcome_msg)
+    console.push_local_ns("greet", greet)
     console.interpreter.locals["clear"] = console.clear
 
     # add a custom magic command:
-    console.add_magic_command('version', version)
+    console.add_magic_command("version", version)
 
     console.show()
     console.eval_in_thread()
