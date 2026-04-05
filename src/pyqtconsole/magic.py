@@ -1,6 +1,6 @@
 import os
-import subprocess
 import platform
+import subprocess
 
 LS_CMD = "dir" if platform.system() == "Windows" else "ls"
 
@@ -57,9 +57,7 @@ class MagicCmds:
     def _WHO(self, args=None):
         """List variable names"""
         vars_list = [
-            name
-            for name in self.parent.interpreter.locals.keys()
-            if not name.startswith("_")
+            name for name in self.parent.interpreter.locals if not name.startswith("_")
         ]
         return "  ".join(sorted(vars_list)) + "\n" if vars_list else "No variables\n"
 
