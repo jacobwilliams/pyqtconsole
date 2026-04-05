@@ -7,7 +7,7 @@ Provides IPython-like magic commands such as %pwd, %cd, %ls, %who, %whos,
 import os
 import platform
 import subprocess
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from .console import PythonConsole

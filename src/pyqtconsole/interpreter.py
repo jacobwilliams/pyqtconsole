@@ -9,9 +9,12 @@ import contextlib
 import sys
 from code import InteractiveInterpreter
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from qtpy.QtCore import QObject, Signal, Slot
+
+if TYPE_CHECKING:
+    from .stream import Stream
 
 
 class PythonInterpreter(QObject, InteractiveInterpreter):
@@ -232,7 +235,7 @@ def disabled_excepthook():
 
 
 @contextlib.contextmanager
-def redirected_io(stdout: "Stream"):  # type: ignore
+def redirected_io(stdout: "Stream"):
     """Context manager to redirect stdout and stderr.
 
     Args:

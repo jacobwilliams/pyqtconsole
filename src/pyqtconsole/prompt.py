@@ -4,7 +4,7 @@ Provides the PromptArea widget that displays input/output prompts
 on the left side of the console text area.
 """
 
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from qtpy.QtCore import QRect, Qt
 from qtpy.QtGui import QPainter

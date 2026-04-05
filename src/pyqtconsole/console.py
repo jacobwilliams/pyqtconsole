@@ -244,7 +244,9 @@ class BaseConsole(QFrame):
         if not _more:
             self._ps = self.in_prompt()
         else:
-            self._ps = (len(self._ps) - len(self._ps2)) * " " + self._ps2
+            # Align continuation prompt with input prompt
+            padding = max(0, len(self._ps) - len(self._ps2))
+            self._ps = padding * " " + self._ps2
 
     @Slot(object)
     def _finish_command(self, result: Any) -> None:
@@ -426,7 +428,14 @@ class BaseConsole(QFrame):
             if indent:
                 lines[i] = tab + line
             else:
-                lines[i] = line[: len(tab)].lstrip() + line[len(tab) :]
+                # Only unindent if line has leading whitespace
+                if line and line[0].isspace():
+                    # Remove up to one tab width of leading whitespace
+                    stripped = line.lstrip()
+                    removed = len(line) - len(stripped)
+                    keep = max(0, removed - len(tab))
+                    lines[i] = (keep * " ") + stripped
+                # Line has no indentation, leave it unchanged
             num = len(lines[i]) - len(line)
             pos0 += num if i == line0 else 0
             pos1 += num
