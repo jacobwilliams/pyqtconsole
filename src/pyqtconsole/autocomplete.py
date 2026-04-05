@@ -4,7 +4,7 @@ Provides auto-completion support with dropdown and inline modes,
 using Jedi for intelligent Python code completion.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from qtpy.QtCore import QEvent, QObject, Qt
 from qtpy.QtWidgets import QCompleter
