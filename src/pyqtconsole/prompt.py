@@ -4,9 +4,14 @@ Provides the PromptArea widget that displays input/output prompts
 on the left side of the console text area.
 """
 
+from typing import Callable, TYPE_CHECKING
+
 from qtpy.QtCore import QRect, Qt
 from qtpy.QtGui import QPainter
 from qtpy.QtWidgets import QWidget
+
+if TYPE_CHECKING:
+    from qtpy.QtGui import QTextBlock
 
 
 class PromptArea(QWidget):
@@ -16,7 +21,12 @@ class PromptArea(QWidget):
     synchronized with the text in the main editor area.
     """
 
-    def __init__(self, edit, get_text, highlighter):
+    def __init__(
+        self,
+        edit: QWidget,
+        get_text: Callable[[int], tuple[str, bool]],
+        highlighter: object,
+    ) -> None:
         """Initialize the prompt area widget.
 
         Args:
@@ -60,7 +70,7 @@ class PromptArea(QWidget):
         painter.end()
         super().paintEvent(event)
 
-    def updateContents(self, rect, scroll):
+    def updateContents(self, rect: QRect, scroll: int) -> None:
         """Update the prompt area when the editor changes.
 
         Args:
@@ -72,7 +82,7 @@ class PromptArea(QWidget):
         else:
             self.update()
 
-    def adjust_width(self, new_text):
+    def adjust_width(self, new_text: str) -> None:
         """Adjust the width of the prompt area to fit new text.
 
         Args:
@@ -82,7 +92,9 @@ class PromptArea(QWidget):
         if width > self.width():
             self.setFixedWidth(width)
 
-    def draw_block(self, painter, rect, block, first):
+    def draw_block(
+        self, painter: QPainter, rect: QRect, block: "QTextBlock", first: bool
+    ) -> None:
         """Draw the prompt for a given text block.
 
         Renders the prompt text corresponding to a line of the text document,
@@ -113,7 +125,7 @@ class PromptArea(QWidget):
             painter.drawText(rect, Qt.AlignRight, text[idx] + " " * rpos)
 
 
-def calc_text_width(widget, text):
+def calc_text_width(widget: QWidget, text: str) -> int:
     """Estimate the width that the given text would take within the widget.
 
     Args:

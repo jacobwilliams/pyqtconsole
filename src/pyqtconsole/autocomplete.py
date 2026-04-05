@@ -4,10 +4,15 @@ Provides auto-completion support with dropdown and inline modes,
 using Jedi for intelligent Python code completion.
 """
 
+from typing import Optional, TYPE_CHECKING
+
 from qtpy.QtCore import QEvent, QObject, Qt
 from qtpy.QtWidgets import QCompleter
 
 from .text import columnize, long_substr
+
+if TYPE_CHECKING:
+    from .console import BaseConsole
 
 
 class COMPLETE_MODE:
@@ -18,8 +23,8 @@ class COMPLETE_MODE:
         INLINE: Show completions inline below the current line.
     """
 
-    DROPDOWN = 1
-    INLINE = 2
+    DROPDOWN: int = 1
+    INLINE: int = 2
 
 
 class AutoComplete(QObject):
@@ -30,21 +35,21 @@ class AutoComplete(QObject):
     completion suggestions.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent: "BaseConsole") -> None:
         """Initialize the auto-complete handler.
 
         Args:
             parent: Parent console widget.
         """
         super().__init__(parent)
-        self.mode = COMPLETE_MODE.INLINE
-        self.completer = None
-        self._last_key = None
+        self.mode: int = COMPLETE_MODE.INLINE
+        self.completer: Optional[QCompleter] = None
+        self._last_key: Optional[int] = None
 
         parent.edit.installEventFilter(self)
         self.init_completion_list([])
 
-    def eventFilter(self, widget, event):
+    def eventFilter(self, widget: QObject, event: QEvent) -> bool:
         """Filter events to intercept key presses for completion.
 
         Args:
@@ -58,7 +63,7 @@ class AutoComplete(QObject):
             return bool(self.key_pressed_handler(event))
         return False
 
-    def key_pressed_handler(self, event):
+    def key_pressed_handler(self, event: QEvent) -> bool:
         """Handle key press events for completion.
 
         Intercepts Tab, Enter, Return, Space, and Escape keys to manage
@@ -83,7 +88,7 @@ class AutoComplete(QObject):
         self._last_key = key
         return intercepted
 
-    def handle_tab_key(self, event):
+    def handle_tab_key(self, event: QEvent) -> bool:
         """Handle Tab key press for triggering or accepting completions.
 
         Args:
@@ -112,7 +117,9 @@ class AutoComplete(QObject):
             event.accept()
             return True
 
-    def handle_complete_key(self, event):
+        return False
+
+    def handle_complete_key(self, event: QEvent) -> bool:
         """Handle Enter/Return/Space keys to accept a completion.
 
         Args:
@@ -125,8 +132,9 @@ class AutoComplete(QObject):
             self.complete()
             event.accept()
             return True
+        return False
 
-    def _get_word_being_completed(self, _buffer):
+    def _get_word_being_completed(self, _buffer: str) -> str:
         """Extract the word currently being completed from the buffer.
 
         Returns the partial word after the last separator (space or dot).
@@ -154,7 +162,7 @@ class AutoComplete(QObject):
 
         return word_being_completed
 
-    def init_completion_list(self, words):
+    def init_completion_list(self, words: list[str]) -> None:
         """Initialize the QCompleter with a list of completion words.
 
         Creates a new completer configured for the current completion mode
@@ -181,7 +189,7 @@ class AutoComplete(QObject):
         else:
             self.completer.setCompletionMode(QCompleter.InlineCompletion)
 
-    def trigger_complete(self):
+    def trigger_complete(self) -> None:
         """Trigger the auto-completion process.
 
         Fetches completion suggestions for the current input buffer
@@ -190,7 +198,7 @@ class AutoComplete(QObject):
         _buffer = self.parent().input_buffer()
         self.show_completion_suggestions(_buffer)
 
-    def show_completion_suggestions(self, _buffer):
+    def show_completion_suggestions(self, _buffer: str) -> None:
         """Show completion suggestions for the given buffer.
 
         Fetches completions from the parent console, finds the common prefix,
@@ -234,7 +242,7 @@ class AutoComplete(QObject):
                 "\n\n" + cl + "\n", lf=True, keep_buffer=True
             )
 
-    def hide_completion_suggestions(self):
+    def hide_completion_suggestions(self) -> bool:
         """Hide the completion suggestions popup.
 
         Returns:
@@ -243,8 +251,9 @@ class AutoComplete(QObject):
         if self.completing():
             self.completer.popup().close()
             return True
+        return False
 
-    def completing(self):
+    def completing(self) -> bool:
         """Check if completion popup is currently visible.
 
         Returns:
@@ -255,7 +264,7 @@ class AutoComplete(QObject):
         else:
             return False
 
-    def insert_completion(self, completion):
+    def insert_completion(self, completion: str) -> None:
         """Insert a completion string into the editor.
 
         Replaces the partial word with the full completion and positions
@@ -301,7 +310,7 @@ class AutoComplete(QObject):
             if len(words) == 1:
                 self.parent().insert_input_text(" ")
 
-    def complete(self):
+    def complete(self) -> None:
         """Complete with the currently selected item in the popup.
 
         Only applicable in dropdown mode. Inserts the selected completion

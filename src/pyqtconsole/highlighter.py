@@ -5,6 +5,8 @@ Supports custom color schemes and formatting styles.
 """
 
 from bisect import bisect_right
+from collections.abc import Generator
+from typing import Optional
 
 from ipython_pygments_lexers import IPythonLexer as PythonLexer
 from pygments import lex
@@ -31,7 +33,7 @@ class ErrorHighlightData(QTextBlockUserData):
     pass
 
 
-def _find_token_style(style, token_type):
+def _find_token_style(style: object, token_type: object) -> Optional[str]:
     """Walk up token hierarchy to find a style string.
 
     Args:
@@ -50,7 +52,7 @@ def _find_token_style(style, token_type):
     return None
 
 
-def format(color, style=""):
+def format(color: Optional[str], style: str = "") -> QTextCharFormat:
     """Return a QTextCharFormat with the given attributes.
 
     Args:
@@ -91,7 +93,7 @@ STYLES = {
 }
 
 
-def pygments_style_to_format(style_dict):
+def pygments_style_to_format(style_dict: Optional[str]) -> Optional[QTextCharFormat]:
     """Convert a Pygments style dictionary entry to QTextCharFormat.
 
     Pygments style format: "#rrggbb bg:#rrggbb bold italic underline"
@@ -126,7 +128,9 @@ def pygments_style_to_format(style_dict):
     return _format
 
 
-def build_token_style_map(style_name, token_map):
+def build_token_style_map(
+    style_name: str, token_map: dict[str, object]
+) -> dict[str, QTextCharFormat]:
     """Build a style map from Pygments theme for specific tokens.
 
     Args:
@@ -137,7 +141,7 @@ def build_token_style_map(style_name, token_map):
         Dict mapping style keys to QTextCharFormat objects
     """
     style = get_style_by_name(style_name)
-    styles = {}
+    styles: dict[str, QTextCharFormat] = {}
 
     for key, token_type in token_map.items():
         style_string = _find_token_style(style, token_type)
@@ -157,7 +161,11 @@ class PromptHighlighter:
     either custom formats or Pygments color schemes.
     """
 
-    def __init__(self, formats=None, pygments_style=None):
+    def __init__(
+        self,
+        formats: Optional[dict[str, QTextCharFormat]] = None,
+        pygments_style: Optional[str] = None,
+    ) -> None:
         """Initialize the prompt highlighter.
 
         Args:
@@ -166,7 +174,7 @@ class PromptHighlighter:
             pygments_style: Name of Pygments style to use (e.g., 'monokai').
                 Defaults to None.
         """
-        self.styles = dict(STYLES)
+        self.styles: dict[str, QTextCharFormat] = dict(STYLES)
         if pygments_style:
             # Use Pygments built-in style
             self.updateStyle(pygments_style)
@@ -174,7 +182,7 @@ class PromptHighlighter:
             # Legacy: use custom formats
             self.styles.update(formats)
 
-    def updateStyle(self, style_name):
+    def updateStyle(self, style_name: str) -> None:
         """Change the Pygments color scheme for prompts.
 
         Args:
@@ -190,7 +198,9 @@ class PromptHighlighter:
             print(f"Error: Pygments style '{style_name}' not found.")
             return
 
-    def highlight(self, text, is_output=False):
+    def highlight(
+        self, text: str, is_output: bool = False
+    ) -> Generator[tuple[int, int, QTextCharFormat], None, None]:
         """Apply prompt formatting to entire text.
 
         Args:
@@ -218,7 +228,12 @@ class PythonHighlighter(QSyntaxHighlighter):
     for custom color schemes and Pygments styles.
     """
 
-    def __init__(self, document, formats=None, pygments_style=None):
+    def __init__(
+        self,
+        document: object,
+        formats: Optional[dict[str, QTextCharFormat]] = None,
+        pygments_style: Optional[str] = None,
+    ) -> None:
         """Initialize the Python syntax highlighter.
 
         Args:
@@ -244,10 +259,10 @@ class PythonHighlighter(QSyntaxHighlighter):
             self.token_formats = self._build_custom_token_formats()
 
         # Cache tokenized document by content hash
-        self._cached_doc_text = None
-        self._line_formats = {}
+        self._cached_doc_text: Optional[str] = None
+        self._line_formats: dict[int, list[tuple[int, int, QTextCharFormat]]] = {}
 
-    def _build_custom_token_formats(self):
+    def _build_custom_token_formats(self) -> dict[object, QTextCharFormat]:
         """Build token format map from custom STYLES dictionary.
 
         Returns:
@@ -287,7 +302,9 @@ class PythonHighlighter(QSyntaxHighlighter):
             Token.Generic.Error: styles["error"],
         }
 
-    def _build_pygments_token_formats(self, style_name):
+    def _build_pygments_token_formats(
+        self, style_name: str
+    ) -> dict[object, QTextCharFormat]:
         """Build token format map from Pygments style.
 
         Args:
@@ -297,7 +314,7 @@ class PythonHighlighter(QSyntaxHighlighter):
             Dict mapping Token types to QTextCharFormat objects.
         """
         style = get_style_by_name(style_name)
-        token_formats = {}
+        token_formats: dict[object, QTextCharFormat] = {}
 
         # Convert each token type in the style
         # style.styles is a dict: {token_type: style_string}
@@ -308,7 +325,7 @@ class PythonHighlighter(QSyntaxHighlighter):
 
         return token_formats
 
-    def updateStyle(self, style_name):
+    def updateStyle(self, style_name: str) -> None:
         """Change the Pygments color scheme and re-highlight the document.
 
         Args:
@@ -323,7 +340,7 @@ class PythonHighlighter(QSyntaxHighlighter):
         self._line_formats = {}
         self.rehighlight()  # Trigger re-highlighting of entire document
 
-    def _to_utf16_offset(self, text, position):
+    def _to_utf16_offset(self, text: str, position: int) -> int:
         """Convert Python string position to UTF-16 offset for Qt.
 
         Qt uses UTF-16 encoding internally, where some characters
@@ -339,7 +356,7 @@ class PythonHighlighter(QSyntaxHighlighter):
         """
         return len(text[:position].encode("utf-16-le")) // 2
 
-    def highlightBlock(self, text):
+    def highlightBlock(self, text: str) -> None:
         """Apply syntax highlighting to a text block.
 
         Called by Qt for each visible text block. Uses cached tokenization
@@ -375,7 +392,9 @@ class PythonHighlighter(QSyntaxHighlighter):
             for start, length, fmt in self._line_formats[block_num]:
                 self.setFormat(start, length, fmt)
 
-    def _tokenize_document(self, text):
+    def _tokenize_document(
+        self, text: str
+    ) -> dict[int, list[tuple[int, int, QTextCharFormat]]]:
         """Tokenize entire document, return formatting by line number.
 
         This method is necessary because Pygments requires the entire document
@@ -396,7 +415,7 @@ class PythonHighlighter(QSyntaxHighlighter):
         Returns:
             dict: Maps line numbers to lists of (start, length, format) tuples
         """
-        line_formats = {}
+        line_formats: dict[int, list[tuple[int, int, QTextCharFormat]]] = {}
         if not text:
             return line_formats
 
@@ -456,7 +475,7 @@ class PythonHighlighter(QSyntaxHighlighter):
 
         return line_formats
 
-    def _get_format_for_token(self, token_type):
+    def _get_format_for_token(self, token_type: object) -> Optional[QTextCharFormat]:
         """Find the most specific format for a token type.
 
         Walks up the token hierarchy until a format is found.

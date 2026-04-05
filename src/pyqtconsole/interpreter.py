@@ -9,6 +9,7 @@ import contextlib
 import sys
 from code import InteractiveInterpreter
 from functools import partial
+from typing import Any, Callable, Optional
 
 from qtpy.QtCore import QObject, Signal, Slot
 
@@ -31,7 +32,12 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
     exit_signal = Signal(object)
     error_signal = Signal()  # Emitted when error output is about to be written
 
-    def __init__(self, stdin, stdout, locals=None):
+    def __init__(
+        self,
+        stdin: "Stream",
+        stdout: "Stream",
+        locals: Optional[dict[str, Any]] = None,
+    ) -> None:
         """Initialize the Python interpreter.
 
         Args:
@@ -44,10 +50,10 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
         self.locals["exit"] = Exit()
         self.stdin = stdin
         self.stdout = stdout
-        self._executing = False
-        self.compile = partial(compile_multi, self.compile)
+        self._executing: bool = False
+        self.compile: Callable = partial(compile_multi, self.compile)
 
-    def executing(self):
+    def executing(self) -> bool:
         """Check if code is currently executing.
 
         Returns:
@@ -55,7 +61,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
         """
         return self._executing
 
-    def runcode(self, code):
+    def runcode(self, code: Any) -> None:
         """Execute compiled code by emitting exec_signal.
 
         Args:
@@ -64,7 +70,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
         self.exec_signal.emit(code)
 
     @Slot(object)
-    def exec_(self, codes):
+    def exec_(self, codes: list[tuple[Any, str]]) -> None:
         """Execute a list of compiled code objects.
 
         Executes code with redirected I/O and proper exception handling.
@@ -74,7 +80,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
             codes: List of tuples (code, mode) where mode is 'eval' or 'exec'.
         """
         self._executing = True
-        result = None
+        result: Any = None
 
         # Redirect IO and disable excepthook, this is the only place were we
         # redirect IO, since we don't how IO is handled within the code we
@@ -95,7 +101,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
             self._executing = False
             self.done_signal.emit(result)
 
-    def write(self, data):
+    def write(self, data: str) -> None:
         """Write data to stdout.
 
         Args:
@@ -103,7 +109,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
         """
         self.stdout.write(data)
 
-    def showtraceback(self):
+    def showtraceback(self) -> None:
         """Display the exception traceback.
 
         Emits error_signal and writes traceback to stdout. Handles
@@ -119,7 +125,7 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
             with disabled_excepthook():
                 InteractiveInterpreter.showtraceback(self)
 
-    def showsyntaxerror(self, filename=None, **kwargs):
+    def showsyntaxerror(self, filename: Optional[str] = None, **kwargs: Any) -> None:
         """Display a syntax error.
 
         Emits error_signal and writes syntax error to stdout.
@@ -137,7 +143,9 @@ class PythonInterpreter(QObject, InteractiveInterpreter):
         self.done_signal.emit(None)
 
 
-def compile_multi(compiler, source, filename, symbol):
+def compile_multi(
+    compiler: Callable, source: str, filename: str, symbol: str
+) -> Optional[list[tuple[Any, str]]]:
     """Compile source code with support for multiple statements.
 
     If mode is 'multi', splits code into individual toplevel expressions or
@@ -172,7 +180,7 @@ def compile_multi(compiler, source, filename, symbol):
     return [compile_single_node(node, filename) for node in module.body]
 
 
-def compile_single_node(node, filename):
+def compile_single_node(node: ast.AST, filename: str) -> tuple[Any, str]:
     """Compile a single AST node (expression or statement).
 
     Args:
@@ -190,7 +198,7 @@ def compile_single_node(node, filename):
     return (compile(root, filename, mode), mode)
 
 
-def find_nth(string, char, n):
+def find_nth(string: str, char: str, n: int) -> int:
     """Find the n-th occurrence of a character within a string.
 
     Args:
@@ -224,7 +232,7 @@ def disabled_excepthook():
 
 
 @contextlib.contextmanager
-def redirected_io(stdout):
+def redirected_io(stdout: "Stream"):  # type: ignore
     """Context manager to redirect stdout and stderr.
 
     Args:
@@ -254,7 +262,7 @@ class Exit:
     Provides a user-friendly exit interface that works in all environments.
     """
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return usage message.
 
         Returns:
@@ -262,7 +270,7 @@ class Exit:
         """
         return "Type exit() to exit this console."
 
-    def __call__(self, *args):
+    def __call__(self, *args: Any) -> None:
         """Exit the console when called.
 
         Args:

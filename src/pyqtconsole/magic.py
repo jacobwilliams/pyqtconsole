@@ -7,8 +7,12 @@ Provides IPython-like magic commands such as %pwd, %cd, %ls, %who, %whos,
 import os
 import platform
 import subprocess
+from typing import Callable, Optional, TYPE_CHECKING
 
-LS_CMD = "dir" if platform.system() == "Windows" else "ls"
+if TYPE_CHECKING:
+    from .console import PythonConsole
+
+LS_CMD: str = "dir" if platform.system() == "Windows" else "ls"
 
 
 class MagicCmds:
@@ -18,7 +22,7 @@ class MagicCmds:
     operations like file system navigation, variable inspection, and timing.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent: "PythonConsole") -> None:
         """Initialize the magic commands manager.
 
         Args:
@@ -26,7 +30,7 @@ class MagicCmds:
         """
         self.parent = parent
 
-        self.MAGIC_COMMANDS = {
+        self.MAGIC_COMMANDS: dict[str, Callable[[Optional[str]], str]] = {
             "pwd": self._PWD,
             "cd": self._CD,
             "ls": self._LS,
@@ -38,7 +42,7 @@ class MagicCmds:
             "run": self._RUN,
         }  # magic command name (without %) -> function(args) mapping
 
-    def _PWD(self, args=None):
+    def _PWD(self, args: Optional[str] = None) -> str:
         """Return current working directory.
 
         Args:
@@ -49,11 +53,12 @@ class MagicCmds:
         """
         return os.getcwd() + "\n"
 
-    def _CD(self, args=None):
+    def _CD(self, args: Optional[str] = None) -> str:
         """Change current working directory.
 
         Args:
-            args: Optional target directory path. If None, stays in current directory.
+            args: Optional target directory path.
+                If None, stays in current directory.
 
         Returns:
             New current working directory path with newline.
@@ -62,7 +67,7 @@ class MagicCmds:
             os.chdir(os.path.expanduser(args))
         return os.getcwd() + "\n"
 
-    def _LS(self, args=None):
+    def _LS(self, args: Optional[str] = None) -> str:
         """List directory contents.
 
         Args:
@@ -79,7 +84,7 @@ class MagicCmds:
         )
         return result.stdout if result.stdout else result.stderr
 
-    def _CLEAR(self, args=None):
+    def _CLEAR(self, args: Optional[str] = None) -> str:
         """Clear the console display.
 
         Args:
@@ -91,21 +96,22 @@ class MagicCmds:
         self.parent.clear()
         return ""
 
-    def _WHO(self, args=None):
+    def _WHO(self, args: Optional[str] = None) -> str:
         """List variable names in the current namespace.
 
         Args:
             args: Unused, for consistency with other magic commands.
 
         Returns:
-            Space-separated list of non-private variable names, or "No variables".
+            Space-separated list of non-private variable names,
+            or "No variables".
         """
         vars_list = [
             name for name in self.parent.interpreter.locals if not name.startswith("_")
         ]
         return "  ".join(sorted(vars_list)) + "\n" if vars_list else "No variables\n"
 
-    def _WHOS(self, args=None):
+    def _WHOS(self, args: Optional[str] = None) -> str:
         """Display detailed variable information.
 
         Shows variable name, type, and a truncated representation for each
@@ -132,7 +138,7 @@ class MagicCmds:
                 lines.append(f"{name:<10} {obj_type:<12} {obj_repr}\n")
         return "".join(lines) if len(lines) > 2 else "No variables\n"
 
-    def _TIMEIT(self, args=None):
+    def _TIMEIT(self, args: Optional[str] = None) -> str:
         """Time the execution of a Python statement.
 
         Runs the statement multiple times and reports the average time per loop.
@@ -167,7 +173,7 @@ class MagicCmds:
         except Exception as e:
             return f"Error timing code: {str(e)}\n"
 
-    def _RUN(self, args):
+    def _RUN(self, args: Optional[str]) -> str:
         """Execute a Python script file.
 
         Runs the specified Python file in the current interpreter namespace.
@@ -195,7 +201,7 @@ class MagicCmds:
         except Exception as e:
             return f"Error running script: {str(e)}\n"
 
-    def _HELP(self, args=None):
+    def _HELP(self, args: Optional[str] = None) -> str:
         """Display help message for magic commands.
 
         Args:
@@ -209,7 +215,7 @@ class MagicCmds:
         )
         return f"Available magic commands: {available_cmds}\n"
 
-    def run(self, cmd, args):
+    def run(self, cmd: str, args: Optional[str]) -> str:
         """Execute a magic command.
 
         Args:
@@ -224,7 +230,9 @@ class MagicCmds:
         else:
             return f"Unknown magic command: %{cmd}\n" + self._HELP()
 
-    def add_magic_command(self, name, func):
+    def add_magic_command(
+        self, name: str, func: Callable[[Optional[str]], str]
+    ) -> None:
         """Add a custom magic command.
 
         Args:

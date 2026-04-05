@@ -5,6 +5,7 @@ used for redirecting stdin/stdout in the console.
 """
 
 from threading import Condition
+from typing import Optional
 
 from qtpy.QtCore import QObject, Signal
 
@@ -25,13 +26,13 @@ class Stream(QObject):
     flush_event = Signal(str)
     close_event = Signal()
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the stream with an empty buffer."""
         super().__init__()
-        self._line_cond = Condition()
-        self._buffer = ""
+        self._line_cond: Condition = Condition()
+        self._buffer: str = ""
 
-    def _reset_buffer(self):
+    def _reset_buffer(self) -> str:
         """Clear the internal buffer and return its contents.
 
         Returns:
@@ -41,7 +42,7 @@ class Stream(QObject):
         self._buffer = ""
         return data
 
-    def _flush(self):
+    def _flush(self) -> str:
         """Flush the buffer and notify waiting threads.
 
         Returns:
@@ -53,7 +54,7 @@ class Stream(QObject):
 
         return data
 
-    def readline(self, timeout=None):
+    def readline(self, timeout: Optional[float] = None) -> str:
         """Read a line from the stream, blocking until a newline is available.
 
         Waits for data with a newline character to be available in the buffer.
@@ -103,7 +104,7 @@ class Stream(QObject):
 
         return data
 
-    def write(self, data):
+    def write(self, data: str) -> None:
         """Write data to the stream and emit write_event signal.
 
         Appends data to the internal buffer and notifies threads waiting
@@ -120,7 +121,7 @@ class Stream(QObject):
 
             self.write_event.emit(data)
 
-    def flush(self):
+    def flush(self) -> str:
         """Flush the stream buffer and emit flush_event signal.
 
         Returns:
@@ -130,6 +131,6 @@ class Stream(QObject):
         self.flush_event.emit(data)
         return data
 
-    def close(self):
+    def close(self) -> None:
         """Close the stream and emit close_event signal."""
         self.close_event.emit()

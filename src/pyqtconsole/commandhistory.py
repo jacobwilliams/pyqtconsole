@@ -4,7 +4,12 @@ Provides the CommandHistory class for tracking and navigating through
 previously executed commands.
 """
 
+from typing import TYPE_CHECKING
+
 from qtpy.QtCore import QObject
+
+if TYPE_CHECKING:
+    from .console import BaseConsole
 
 
 class CommandHistory(QObject):
@@ -14,18 +19,18 @@ class CommandHistory(QObject):
     the history using up/down arrow keys.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent: "BaseConsole") -> None:
         """Initialize the command history.
 
         Args:
             parent: Parent console widget.
         """
         super().__init__(parent)
-        self._cmd_history = []
-        self._idx = 0
-        self._pending_input = ""
+        self._cmd_history: list[str] = []
+        self._idx: int = 0
+        self._pending_input: str = ""
 
-    def add(self, str_):
+    def add(self, str_: str) -> None:
         """Add a command to the history.
 
         Args:
@@ -37,7 +42,7 @@ class CommandHistory(QObject):
         self._pending_input = ""
         self._idx = len(self._cmd_history)
 
-    def inc(self):
+    def inc(self) -> None:
         """Move forward in history (towards more recent commands).
 
         Updates the editor with the command at the new position.
@@ -48,7 +53,7 @@ class CommandHistory(QObject):
             self._idx = min(self._idx + 1, len(self._cmd_history))
             self._insert_in_editor(self.current())
 
-    def dec(self, _input):
+    def dec(self, _input: str) -> None:
         """Move backward in history (towards older commands).
 
         Saves the current input before navigating and updates the editor
@@ -63,7 +68,7 @@ class CommandHistory(QObject):
             self._idx -= 1
             self._insert_in_editor(self.current())
 
-    def current(self):
+    def current(self) -> str:
         """Get the command at the current history position.
 
         Returns:
@@ -75,7 +80,7 @@ class CommandHistory(QObject):
         else:
             return self._cmd_history[self._idx]
 
-    def _insert_in_editor(self, str_):
+    def _insert_in_editor(self, str_: str) -> None:
         """Replace editor content with the given string.
 
         Args:

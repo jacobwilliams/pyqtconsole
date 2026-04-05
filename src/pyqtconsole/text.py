@@ -4,8 +4,10 @@ Provides functions for finding common substrings and formatting text output
 in columns for display in the console.
 """
 
+from typing import Any, Optional, Union
 
-def long_substr(data):
+
+def long_substr(data: list[str]) -> str:
     """Find the longest common substring across all strings in data.
 
     Args:
@@ -28,7 +30,7 @@ def long_substr(data):
     return substr
 
 
-def is_substr(find, data):
+def is_substr(find: str, data: list[str]) -> bool:
     """Check if a substring exists in all strings in data.
 
     Args:
@@ -43,7 +45,7 @@ def is_substr(find, data):
     return all(find in d for d in data)
 
 
-default_opts = {
+default_opts: dict[str, Any] = {
     "arrange_array": False,  # Check if file has changed since last time
     "arrange_vertical": True,
     "array_prefix": "",
@@ -58,7 +60,7 @@ default_opts = {
 }
 
 
-def get_option(key, options):
+def get_option(key: str, options: dict[str, Any]) -> Any:
     """Get an option value from options dict or fall back to default.
 
     Args:
@@ -72,14 +74,14 @@ def get_option(key, options):
 
 
 def columnize(
-    array,
-    displaywidth=80,
-    colsep="  ",
-    arrange_vertical=True,
-    ljust=True,
-    lineprefix="",
-    opts=None,
-):
+    array: Union[list[Any], tuple[Any, ...]],
+    displaywidth: int = 80,
+    colsep: str = "  ",
+    arrange_vertical: bool = True,
+    ljust: bool = True,
+    lineprefix: str = "",
+    opts: Optional[dict[str, Any]] = None,
+) -> str:
     """Format a list of strings as a compact set of columns.
 
     Arranges the strings either vertically (top-to-bottom, left-to-right)
