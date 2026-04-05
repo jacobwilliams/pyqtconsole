@@ -1,10 +1,18 @@
+"""Interactive console widget for Qt applications.
+
+Provides BaseConsole and PythonConsole classes for embedding an interactive
+Python console with syntax highlighting, command history, auto-completion,
+and magic commands.
+"""
+
 import ctypes
 import subprocess
 import threading
 from abc import abstractmethod
+from typing import Any, Callable, Optional, Union
 
 from qtpy.QtCore import QEvent, Qt, QThread, Slot
-from qtpy.QtGui import QClipboard, QFontMetrics, QTextCursor
+from qtpy.QtGui import QClipboard, QFont, QFontMetrics, QTextCursor
 from qtpy.QtWidgets import QApplication, QFrame, QHBoxLayout, QPlainTextEdit
 
 from .autocomplete import COMPLETE_MODE, AutoComplete
@@ -36,46 +44,38 @@ except AttributeError:  # PyQt < 5.11
 
 
 class BaseConsole(QFrame):
-    """Base class for implementing a GUI console."""
+    """Base class for implementing a GUI console.
+
+    Provides the core functionality for a console widget including input/output
+    handling, command history, auto-completion, and magic commands. Subclasses
+    must implement abstract methods for execution and completion.
+    """
 
     def __init__(
         self,
-        parent=None,
-        formats=None,
-        shell_cmd_prefix=False,
-        inprompt=None,
-        outprompt=None,
-        welcome_message=None,
-        pygments_style=None,
-    ):
-        """
+        parent: Optional["QFrame"] = None,
+        formats: Optional[dict[str, Any]] = None,
+        shell_cmd_prefix: bool = False,
+        inprompt: Optional[str] = None,
+        outprompt: Optional[str] = None,
+        welcome_message: Optional[str] = None,
+        pygments_style: Optional[str] = None,
+    ) -> None:
+        """Initialize the base console.
 
-        :param parent: Parent widget (Defaults to None)
-        :type parent: QWidget, None
-        :param formats: Dictionary of text formats (Defaults to None)
-        :type formats: dict, None
-        :param shell_cmd_prefix: Enable shell commands (Defaults to False)
-                If set, commands starting with ``!`` will be treated
-                as system commands and executed using subprocess.
-                When False, no shell commands are accepted.
-                For example, if set to True, entering ``!ls -l`` will execute the
-                command ``ls -l`` in the system shell and display its output in
-                the console.
-        :type shell_cmd_prefix: bool
-        :param inprompt: Input prompt (Defaults to None)
-                If None, then 'IN [%d]: ' is used, where `%d` is formatted after
-                the current input line number.
-        :type inprompt: str, None
-        :param outprompt: Output prompt (Defaults to None)
-                If None, then 'OUT[%d]: ' is used, where `%d` is formatted after
-                the current input line number.
-        :type outprompt: str, None
-        :param welcome_message: Welcome message to display at startup
-                (Defaults to None). If provided, this message will be
-                displayed before the first prompt. Not syntax highlighted.
-        :type welcome_message: str, None
-        :param pygments_style: Name of Pygments style (Defaults to None)
-        :type pygments_style: str, None
+        Args:
+            parent: Parent widget. Defaults to None.
+            formats: Dictionary of text formats for custom styling. Defaults to None.
+            shell_cmd_prefix: If True, commands starting with ``!`` will be treated
+                as system commands and executed using subprocess. Defaults to False.
+            inprompt: Input prompt template. If None, uses 'IN [%d]: ' where %d
+                is the current line number. Defaults to None.
+            outprompt: Output prompt template. If None, uses 'OUT[%d]: ' where %d
+                is the current line number. Defaults to None.
+            welcome_message: Welcome message to display at startup. Not syntax
+                highlighted. Defaults to None.
+            pygments_style: Name of Pygments style (e.g., 'monokai', 'vim').
+                Defaults to None.
         """
         super().__init__(parent)
 
@@ -104,9 +104,9 @@ class BaseConsole(QFrame):
         #  * `is_output` is a boolean
         #    indicating whether the line is an output
         #    line (True) or an input line (False)
-        self._prompt_doc = [("", False)]
-        self._prompt_pos = 0
-        self._output_inserted = False
+        self._prompt_doc: list[tuple[str, bool]] = [("", False)]
+        self._prompt_pos: int = 0
+        self._output_inserted: bool = False
         self._tab_chars = 4 * " "
         self._ctrl_d_exits = False
         self._copy_buffer = ""
@@ -165,8 +165,12 @@ class BaseConsole(QFrame):
 
         self._show_ps()
 
-    def out_prompt(self):
-        """return the (formatted) output prompt."""
+    def out_prompt(self) -> str:
+        """Get the formatted output prompt.
+
+        Returns:
+            Formatted output prompt string with current line number.
+        """
         try:
             # may depend on current line:
             return self._ps_out % self._current_line
@@ -175,21 +179,37 @@ class BaseConsole(QFrame):
             # In case the provided format does not include a placeholder, just
             # take the template string
 
-    def in_prompt(self):
-        """return the (formatted) input prompt."""
+    def in_prompt(self) -> str:
+        """Get the formatted input prompt.
+
+        Returns:
+            Formatted input prompt string with current line number.
+        """
         try:
             return self._ps1 % self._current_line
         except TypeError:
             return self._ps1
 
-    def setFont(self, font):
-        """Set font (you should only use monospace!)."""
+    def setFont(self, font: QFont) -> None:
+        """Set the console font.
+
+        Args:
+            font: QFont to use. Should be monospace for best results.
+        """
         self.edit.document().setDefaultFont(font)
         self.edit.setFont(font)
         super().setFont(font)
 
-    def eventFilter(self, edit, event):
-        """Intercepts events from the input control."""
+    def eventFilter(self, edit: Any, event: QEvent) -> bool:
+        """Filter events from the input control.
+
+        Args:
+            edit: Widget that generated the event.
+            event: QEvent to filter.
+
+        Returns:
+            True if event was handled, False otherwise.
+        """
         if event.type() == QEvent.KeyPress:
             return bool(self._filter_keyPressEvent(event))
         elif event.type() == QEvent.MouseButtonPress:
@@ -197,16 +217,27 @@ class BaseConsole(QFrame):
         else:
             return False
 
-    def _textCursor(self):
+    def _textCursor(self) -> QTextCursor:
+        """Get the text cursor from the edit widget.
+
+        Returns:
+            QTextCursor for the edit area.
+        """
         return self.edit.textCursor()
 
-    def _setTextCursor(self, cursor):
+    def _setTextCursor(self, cursor: QTextCursor) -> None:
+        """Set the text cursor in the edit widget.
+
+        Args:
+            cursor: QTextCursor to set.
+        """
         self.edit.setTextCursor(cursor)
 
-    def ensureCursorVisible(self):
+    def ensureCursorVisible(self) -> None:
+        """Ensure the cursor is visible in the edit widget."""
         self.edit.ensureCursorVisible()
 
-    def _update_ps(self, _more):
+    def _update_ps(self, _more: bool) -> None:
         # We need to show the more prompt of the input was incomplete
         # If the input is complete increase the input number and show
         # the in prompt
@@ -216,7 +247,7 @@ class BaseConsole(QFrame):
             self._ps = (len(self._ps) - len(self._ps2)) * " " + self._ps2
 
     @Slot(object)
-    def _finish_command(self, result):
+    def _finish_command(self, result: Any) -> None:
         # Check if there was an error before clearing the flag
         had_exception = self._current_output_is_error
         self._current_output_is_error = False
@@ -233,16 +264,16 @@ class BaseConsole(QFrame):
         self._show_ps()
 
     @Slot()
-    def _error_started(self):
+    def _error_started(self) -> None:
         """Called when the interpreter is about to write error output."""
         self._current_output_is_error = True
 
-    def _show_ps(self):
+    def _show_ps(self) -> None:
         if self._output_inserted and not self._more:
             self._insert_output_text("\n")
         self._insert_prompt_text(self._ps, is_output=False)
 
-    def _get_key_event_handlers(self):
+    def _get_key_event_handlers(self) -> dict[int, Callable[[Any], Any]]:
         return {
             Qt.Key_Escape: self._handle_escape_key,
             Qt.Key_Return: self._handle_enter_key,
@@ -261,18 +292,19 @@ class BaseConsole(QFrame):
             Qt.Key_U: self._handle_u_key,
         }
 
-    def insertFromMimeData(self, mime_data):
+    def insertFromMimeData(self, mime_data: Any) -> None:
         if mime_data and mime_data.hasText():
             self.insert_input_text(mime_data.text())
 
-    def _filter_mousePressEvent(self, event):
+    def _filter_mousePressEvent(self, event: QEvent) -> bool:
         if event.button() == Qt.MiddleButton:
             clipboard = QApplication.clipboard()
             mime_data = clipboard.mimeData(QClipboard.Selection)
             self.insertFromMimeData(mime_data)
             return True
+        return False
 
-    def _filter_keyPressEvent(self, event):
+    def _filter_keyPressEvent(self, event: QEvent) -> bool:
         key = event.key()
         event.ignore()
 
@@ -299,12 +331,12 @@ class BaseConsole(QFrame):
                 intercepted = True
                 self.insert_input_text(event.text())
 
-        return intercepted
+        return bool(intercepted)
 
-    def _handle_escape_key(self, event):
+    def _handle_escape_key(self, event: QEvent) -> bool:
         return True
 
-    def _handle_enter_key(self, event):
+    def _handle_enter_key(self, event: QEvent) -> bool:
         if event.modifiers() & Qt.ShiftModifier:
             self.insert_input_text("\n")
         else:
@@ -317,7 +349,7 @@ class BaseConsole(QFrame):
             self.process_input(buffer)
         return True
 
-    def _handle_backspace_key(self, event):
+    def _handle_backspace_key(self, event: QEvent) -> bool:
         self._keep_cursor_in_buffer()
         cursor = self._textCursor()
         offset = self.cursor_offset()
@@ -337,7 +369,7 @@ class BaseConsole(QFrame):
         self._remove_selected_input(cursor)
         return True
 
-    def _handle_delete_key(self, event):
+    def _handle_delete_key(self, event: QEvent) -> bool:
         self._keep_cursor_in_buffer()
         cursor = self._textCursor()
         offset = self.cursor_offset()
@@ -358,7 +390,7 @@ class BaseConsole(QFrame):
         self._remove_selected_input(cursor)
         return True
 
-    def _handle_tab_key(self, event):
+    def _handle_tab_key(self, event: QEvent) -> bool:
         cursor = self._textCursor()
         if cursor.hasSelection():
             self._setTextCursor(self._indent_selection(cursor))
@@ -371,11 +403,13 @@ class BaseConsole(QFrame):
         event.accept()
         return True
 
-    def _handle_backtab_key(self, event):
+    def _handle_backtab_key(self, event: QEvent) -> bool:
         self._setTextCursor(self._indent_selection(self._textCursor(), False))
         return True
 
-    def _indent_selection(self, cursor, indent=True):
+    def _indent_selection(
+        self, cursor: QTextCursor, indent: bool = True
+    ) -> QTextCursor:
         buf = self.input_buffer()
         tab = self._tab_chars
         pos0 = cursor.selectionStart() - self._prompt_pos
@@ -402,12 +436,12 @@ class BaseConsole(QFrame):
         cursor.setPosition(self._prompt_pos + pos1, QTextCursor.KeepAnchor)
         return cursor
 
-    def _handle_home_key(self, event):
+    def _handle_home_key(self, event: QEvent) -> bool:
         select = event.modifiers() & Qt.ShiftModifier
         self._move_cursor(self._prompt_pos, select)
         return True
 
-    def _handle_up_key(self, event):
+    def _handle_up_key(self, event: QEvent) -> bool:
         shift = event.modifiers() & Qt.ShiftModifier
         if shift or "\n" in self.input_buffer()[: self.cursor_offset()]:
             self._move_cursor(QTextCursor.Up, select=shift)
@@ -415,7 +449,7 @@ class BaseConsole(QFrame):
             self.command_history.dec(self.input_buffer())
         return True
 
-    def _handle_down_key(self, event):
+    def _handle_down_key(self, event: QEvent) -> bool:
         shift = event.modifiers() & Qt.ShiftModifier
         if shift or "\n" in self.input_buffer()[self.cursor_offset() :]:
             self._move_cursor(QTextCursor.Down, select=shift)
@@ -423,10 +457,10 @@ class BaseConsole(QFrame):
             self.command_history.inc()
         return True
 
-    def _handle_left_key(self, event):
+    def _handle_left_key(self, event: QEvent) -> bool:
         return self.cursor_offset() < 1
 
-    def _handle_d_key(self, event):
+    def _handle_d_key(self, event: QEvent) -> bool:
         if event.modifiers() == Qt.ControlModifier and not self.input_buffer():
             if self._ctrl_d_exits:
                 self.exit()
@@ -438,8 +472,9 @@ class BaseConsole(QFrame):
                 self._update_ps(False)
                 self._show_ps()
             return True
+        return False
 
-    def _handle_c_key(self, event):
+    def _handle_c_key(self, event: QEvent) -> bool:
         intercepted = False
         if event.modifiers() == Qt.ControlModifier:
             self._handle_ctrl_c()
@@ -449,13 +484,13 @@ class BaseConsole(QFrame):
             intercepted = True
         return intercepted
 
-    def _handle_u_key(self, event):
+    def _handle_u_key(self, event: QEvent) -> bool:
         if event.modifiers() == Qt.ControlModifier and self.input_buffer():
             self.clear_input_buffer()
             return True
         return False
 
-    def _handle_v_key(self, event):
+    def _handle_v_key(self, event: QEvent) -> bool:
         if (
             event.modifiers() == Qt.ControlModifier
             or event.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
@@ -466,13 +501,15 @@ class BaseConsole(QFrame):
             return True
         return False
 
-    def _hide_cursor(self):
+    def _hide_cursor(self) -> None:
         self.edit.setCursorWidth(0)
 
-    def _show_cursor(self):
+    def _show_cursor(self) -> None:
         self.edit.setCursorWidth(1)
 
-    def _move_cursor(self, position, select=False):
+    def _move_cursor(
+        self, position: Union[int, QTextCursor.MoveOperation], select: bool = False
+    ) -> None:
         cursor = self._textCursor()
         mode = QTextCursor.KeepAnchor if select else QTextCursor.MoveAnchor
         if isinstance(position, QTextCursor.MoveOperation):
@@ -482,7 +519,7 @@ class BaseConsole(QFrame):
         self._setTextCursor(cursor)
         self._keep_cursor_in_buffer()
 
-    def _keep_cursor_in_buffer(self):
+    def _keep_cursor_in_buffer(self) -> None:
         cursor = self._textCursor()
         if cursor.anchor() < self._prompt_pos:
             cursor.setPosition(self._prompt_pos)
@@ -492,8 +529,13 @@ class BaseConsole(QFrame):
         self.ensureCursorVisible()
 
     def _insert_output_text(
-        self, text, lf=False, keep_buffer=False, prompt="", is_error=False
-    ):
+        self,
+        text: str,
+        lf: bool = False,
+        keep_buffer: bool = False,
+        prompt: str = "",
+        is_error: bool = False,
+    ) -> None:
         if keep_buffer:
             self._copy_buffer = self.input_buffer()
 
@@ -523,13 +565,13 @@ class BaseConsole(QFrame):
         if lf:
             self.process_input("")
 
-    def _update_prompt_pos(self):
+    def _update_prompt_pos(self) -> None:
         cursor = self._textCursor()
         cursor.movePosition(QTextCursor.End)
         self._prompt_pos = cursor.position()
         self._output_inserted = self._more
 
-    def _show_welcome_message(self):
+    def _show_welcome_message(self) -> None:
         """Display the welcome message with plain text formatting.
 
         Marks each line/block of the welcome message to prevent syntax
@@ -579,19 +621,29 @@ class BaseConsole(QFrame):
         self._show_ps()
 
     @staticmethod
-    def _selected_text(cursor):
+    def _selected_text(cursor: QTextCursor) -> str:
         """Get sanitized selectedText() from a cursor.
 
-        :param cursor:
-        :type cursor: QTextCursor
-        :rtype: str
+        On a multi-line command, Qt includes a paragraph separator
+        character (U+2029) instead of a newline. This method replaces
+        it with a proper newline.
+
+        Args:
+            cursor: QTextCursor to get selected text from.
+
+        Returns:
+            Selected text with paragraph separators replaced by newlines.
         """
         # On a multi-line command, Qt will include this 'paragraph separator'
         # character instead of a newline (#109):
         return cursor.selectedText().replace("\u2029", "\n")
 
-    def input_buffer(self):
-        """Retrieve current input buffer in string form."""
+    def input_buffer(self) -> str:
+        """Retrieve current input buffer in string form.
+
+        Returns:
+            String containing all text entered after the last prompt.
+        """
         # Use cursor selection to properly handle multi-byte
         # characters like emojis
         cursor = QTextCursor(self.edit.document())
@@ -599,8 +651,12 @@ class BaseConsole(QFrame):
         cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
         return self._selected_text(cursor)
 
-    def cursor_offset(self):
-        """Get current cursor index within input buffer."""
+    def cursor_offset(self) -> int:
+        """Get current cursor index within input buffer.
+
+        Returns:
+            Integer offset of cursor position from start of input buffer.
+        """
         # Extract actual text to get proper string index for multi-byte characters
         cursor = QTextCursor(self.edit.document())
         cursor.setPosition(self._prompt_pos)
@@ -608,24 +664,38 @@ class BaseConsole(QFrame):
         selected_text = self._selected_text(cursor)
         return len(selected_text)
 
-    def _get_line_until_cursor(self):
-        """Get current line of input buffer, up to cursor position."""
+    def _get_line_until_cursor(self) -> str:
+        """Get current line of input buffer up to cursor position.
+
+        Returns:
+            String containing text from line start to cursor.
+        """
         return self.input_buffer()[: self.cursor_offset()].rsplit("\n", 1)[-1]
 
-    def _get_line_after_cursor(self):
-        """Get current line of input buffer, after cursor position."""
+    def _get_line_after_cursor(self) -> str:
+        """Get current line of input buffer after cursor position.
+
+        Returns:
+            String containing text from cursor to line end.
+        """
         return self.input_buffer()[self.cursor_offset() :].split("\n", 1)[0]
 
-    def clear_input_buffer(self):
-        """Clear input buffer."""
+    def clear_input_buffer(self) -> None:
+        """Clear the current input buffer."""
         cursor = self._textCursor()
         cursor.setPosition(self._prompt_pos)
         cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
         self._remove_selected_input(cursor)
         self._setTextCursor(cursor)
 
-    def insert_input_text(self, text, show_ps=True):
-        """Insert text into input buffer."""
+    def insert_input_text(self, text: str, show_ps: bool = True) -> None:
+        """Insert text into the input buffer.
+
+        Args:
+            text: Text string to insert at cursor position.
+            show_ps: If True, show continuation prompts for multi-line input.
+                Defaults to True.
+        """
         self._keep_cursor_in_buffer()
         self.ensureCursorVisible()
 
@@ -642,16 +712,23 @@ class BaseConsole(QFrame):
         elif "\n" in text:
             self._insert_prompt_text("\n" * text.count("\n"), is_output=False)
 
-    def set_auto_complete_mode(self, mode):
+    def set_auto_complete_mode(self, mode: COMPLETE_MODE) -> None:
+        """Set the auto-completion display mode.
+
+        Args:
+            mode: COMPLETE_MODE.DROPDOWN or COMPLETE_MODE.INLINE.
+        """
         if self.auto_complete:
             self.auto_complete.mode = mode
 
-    def process_input(self, source):
-        """Handle a new source snippet confirmed by the user.
+    def process_input(self, source: str) -> None:
+        """Handle and execute a source snippet confirmed by the user.
 
-        If `shell_cmd_prefix` is set and the source starts with this prefix,
-        it is treated as a system command and executed using subprocess.
-        Otherwise, it is passed to the interpreter for execution.
+        Processes magic commands (starting with %), shell commands (if enabled),
+        or Python code. Updates command history and prompts accordingly.
+
+        Args:
+            source: Source code string to process and execute.
         """
         self._last_input = source
 
@@ -680,8 +757,12 @@ class BaseConsole(QFrame):
                 self.command_history.add(source)
                 self._update_prompt_pos()
 
-    def _run_system_command(self, command):
-        """Execute a system command and display its output."""
+    def _run_system_command(self, command: str) -> None:
+        """Execute a system command and display its output.
+
+        Args:
+            command: Shell command string to execute.
+        """
         try:
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             # Display output with OUT prompt
@@ -710,7 +791,7 @@ class BaseConsole(QFrame):
             )
             self._insert_output_text("\n")
 
-    def _run_magic_command(self, command):
+    def _run_magic_command(self, command: str) -> None:
         """Execute a magic command and display its output."""
 
         parts = command.split(None, 1)
@@ -726,7 +807,7 @@ class BaseConsole(QFrame):
         except Exception as e:
             self._insert_output_text(f"Error executing magic command: {str(e)}\n")
 
-    def _handle_ctrl_c(self):
+    def _handle_ctrl_c(self) -> None:
         """Inject keyboard interrupt if code is being executed in a thread,
         else cancel the current prompt."""
         # There is a race condition here, we should lock on the value of
@@ -742,14 +823,14 @@ class BaseConsole(QFrame):
             self._update_ps(self._more)
             self._show_ps()
 
-    def _stdout_data_handler(self, data):
+    def _stdout_data_handler(self, data: str) -> None:
         self._insert_output_text(data, is_error=self._current_output_is_error)
 
         if len(self._copy_buffer) > 0:
             self.insert_input_text(self._copy_buffer)
             self._copy_buffer = ""
 
-    def _insert_prompt_text(self, text, is_output=False):
+    def _insert_prompt_text(self, text: str, is_output: bool = False) -> None:
         lines = text.split("\n")
         # Update last entry by appending text
         last_text, last_is_output = self._prompt_doc[-1]
@@ -761,7 +842,7 @@ class BaseConsole(QFrame):
         for line_text, _ in self._prompt_doc[-len(lines) :]:
             self.pbar.adjust_width(line_text)
 
-    def _get_prompt_text(self, line_number):
+    def _get_prompt_text(self, line_number: int) -> tuple[str, bool]:
         """Get prompt text and type for a given line number.
 
         Returns:
@@ -771,7 +852,7 @@ class BaseConsole(QFrame):
             return self._prompt_doc[line_number]
         return ("", False)
 
-    def _remove_selected_input(self, cursor):
+    def _remove_selected_input(self, cursor: QTextCursor) -> None:
         if not cursor.hasSelection():
             return
 
@@ -782,22 +863,32 @@ class BaseConsole(QFrame):
             block = cursor.blockNumber() + 1
             del self._prompt_doc[block : block + num_lines]
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QEvent) -> None:
         """Exit interpreter when we're closing."""
         self.exit()
         event.accept()
 
-    def _close(self):
+    def _close(self) -> None:
         if self.window().isVisible():
             self.window().close()
 
-    def set_tab(self, chars):
+    def set_tab(self, chars: str) -> None:
+        """Set the tab character string.
+
+        Args:
+            chars: String to use for tab indentation.
+        """
         self._tab_chars = chars
 
-    def ctrl_d_exits_console(self, b):
+    def ctrl_d_exits_console(self, b: bool) -> None:
+        """Set whether Ctrl+D exits the console.
+
+        Args:
+            b: True to enable Ctrl+D exit, False to disable.
+        """
         self._ctrl_d_exits = b
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the console display."""
         self._prompt_doc = [("", False)]
         self._prompt_pos = 0
@@ -810,40 +901,79 @@ class BaseConsole(QFrame):
     # Abstract
 
     @abstractmethod
-    def exit(self):
+    def exit(self) -> None:
+        """Exit the console. Must be implemented by subclasses."""
         pass
 
     @abstractmethod
-    def _executing(self):
+    def _executing(self) -> bool:
+        """Check if code is currently executing. Must be implemented by subclasses.
+
+        Returns:
+            True if executing, False otherwise.
+        """
         pass
 
     @abstractmethod
-    def _cancel(self):
+    def _cancel(self) -> None:
+        """Cancel current execution. Must be implemented by subclasses."""
         pass
 
     @abstractmethod
-    def _run_source(self, source):
+    def _run_source(self, source: str) -> bool:
+        """Run source code. Must be implemented by subclasses.
+
+        Args:
+            source: Source code string to run.
+        """
         pass
 
     @abstractmethod
-    def get_completions(self, line):
+    def get_completions(self, line: str) -> list[str]:
+        """Get code completions. Must be implemented by subclasses.
+
+        Args:
+            line: Line of code to get completions for.
+
+        Returns:
+            List of completion strings.
+        """
         return ["No completion support available"]
 
 
 class PythonConsole(BaseConsole):
-    """Interactive python GUI console."""
+    """Interactive Python console widget.
+
+    Provides a fully functional Python console with syntax highlighting,
+    auto-completion using Jedi, command history, and magic commands.
+    Code can be executed in the main thread or in a separate thread.
+    """
 
     def __init__(
         self,
-        parent=None,
-        locals=None,
-        formats=None,
-        shell_cmd_prefix=False,
-        inprompt=None,
-        outprompt=None,
-        welcome_message=None,
-        pygments_style=None,
-    ):
+        parent: Optional["QFrame"] = None,
+        locals: Optional[dict[str, Any]] = None,
+        formats: Optional[dict[str, Any]] = None,
+        shell_cmd_prefix: bool = False,
+        inprompt: Optional[str] = None,
+        outprompt: Optional[str] = None,
+        welcome_message: Optional[str] = None,
+        pygments_style: Optional[str] = None,
+    ) -> None:
+        """Initialize the Python console.
+
+        Args:
+            parent: Parent widget. Defaults to None.
+            locals: Dictionary of local variables for the interpreter namespace.
+                Defaults to None.
+            formats: Dictionary of text formats for custom styling. Defaults to None.
+            shell_cmd_prefix: If True, enable shell commands with ! prefix.
+                Defaults to False.
+            inprompt: Input prompt template. Defaults to None.
+            outprompt: Output prompt template. Defaults to None.
+            welcome_message: Welcome message to display at startup. Defaults to None.
+            pygments_style: Name of Pygments style (e.g., 'monokai'). Defaults to None.
+        """
         super().__init__(
             parent,
             formats=formats,
@@ -866,9 +996,9 @@ class PythonConsole(BaseConsole):
         self.interpreter.exit_signal.connect(self.exit)
         self.interpreter.error_signal.connect(self._error_started)
         self.set_auto_complete_mode(COMPLETE_MODE.DROPDOWN)
-        self._thread = None
+        self._thread: Optional[Thread] = None
 
-    def set_pygments_style(self, style_name):
+    def set_pygments_style(self, style_name: str) -> None:
         """Change the Pygments color scheme for both code and prompts.
 
         Args:
@@ -882,27 +1012,51 @@ class PythonConsole(BaseConsole):
         self.pbar.update()
 
     def _executing(self):
+        """Check if the interpreter is currently executing code.
+
+        Returns:
+            True if code is executing, False otherwise.
+        """
         return self.interpreter.executing()
 
     def _cancel(self):
+        """Cancel current code execution by injecting KeyboardInterrupt."""
         if self._thread:
             self._thread.inject_exception(KeyboardInterrupt)
             # wake up thread in case it is currently waiting on input:
             self.stdin.flush()
 
-    def _run_source(self, source):
+    def _run_source(self, source: str) -> bool:
+        """Run Python source code in the interpreter.
+
+        Args:
+            source: Python source code string to execute.
+
+        Returns:
+            True if more input is needed (incomplete statement), False otherwise.
+        """
         return self.interpreter.runsource(source, symbol="multi")
 
-    def exit(self):
-        """Exit interpreter."""
+    def exit(self) -> None:
+        """Exit the console and cleanup resources.
+
+        Stops execution thread if running and closes the console.
+        """
         if self._thread:
             self._thread.exit()
             self._thread.wait()
             self._thread = None
         self._close()
 
-    def get_completions(self, line):
-        """Get completions. Used by the ``autocomplete`` extension."""
+    def get_completions(self, line: str) -> list[str]:
+        """Get code completions using Jedi.
+
+        Args:
+            line: Line of code to get completions for.
+
+        Returns:
+            List of completion name strings.
+        """
         script = jedi.Interpreter(line, [self.interpreter.locals])
 
         try:
@@ -913,51 +1067,92 @@ class PythonConsole(BaseConsole):
 
         return [comp.name for comp in comps]
 
-    def push_local_ns(self, name, value):
-        """Set a variable in the local namespace."""
+    def push_local_ns(self, name: str, value: Any) -> None:
+        """Set a variable in the interpreter's local namespace.
+
+        Args:
+            name: Variable name string.
+            value: Value to assign to the variable.
+        """
         self.interpreter.locals[name] = value
 
-    def eval_in_thread(self):
-        """Start a thread in which code snippets will be executed."""
+    def eval_in_thread(self) -> "Thread":
+        """Start a thread in which code snippets will be executed.
+
+        Creates and starts an execution thread that runs code in the background.
+
+        Returns:
+            Thread object that will execute code snippets.
+        """
         self._thread = Thread()
         self.interpreter.moveToThread(self._thread)
         self.interpreter.exec_signal.connect(self.interpreter.exec_, QueuedConnection)
         return self._thread
 
-    def eval_queued(self):
-        """Setup connections to execute code snippets in later mainloop
-        iterations in the main thread."""
+    def eval_queued(self) -> Any:
+        """Execute code snippets in later mainloop iterations in main thread.
+
+        Sets up queued connections to execute code in the main event loop.
+
+        Returns:
+            The signal-slot connection.
+        """
         return self.interpreter.exec_signal.connect(
             self.interpreter.exec_, QueuedConnection
         )
 
-    def eval_executor(self, spawn):
-        """Exec snippets using the given executor function (e.g.
-        ``gevent.spawn``)."""
+    def eval_executor(self, spawn: Callable[[Callable, str], Any]) -> Any:
+        """Execute code using a custom executor function.
+
+        Sets up code execution using the given executor function
+        (e.g., gevent.spawn for async execution).
+
+        Args:
+            spawn: Executor function that takes (callable, args) and spawns execution.
+
+        Returns:
+            The signal-slot connection.
+        """
         return self.interpreter.exec_signal.connect(
             lambda line: spawn(self.interpreter.exec_, line)
         )
 
 
 class Thread(QThread):
-    """Thread that runs an event loop and exposes thread ID as ``.ident``."""
+    """Thread that runs a Qt event loop.
 
-    def __init__(self, parent=None):
+    Exposes the thread ID as the `ident` attribute and allows
+    injecting exceptions to interrupt execution.
+    """
+
+    ident: Optional[int]
+
+    def __init__(self, parent: Optional["QThread"] = None) -> None:
+        """Initialize and start the thread.
+
+        Args:
+            parent: Parent QObject. Defaults to None.
+        """
         super().__init__(parent)
         self.ready = threading.Event()
         self.start()
         self.ready.wait()
 
-    def run(self):
-        """Run Qt event dispatcher within the thread."""
+    def run(self) -> None:
+        """Run the Qt event dispatcher within the thread."""
         self.ident = threading.current_thread().ident
         self.ready.set()
         self.exec_()
 
-    def inject_exception(self, value):
-        """Raise exception in remote thread to stop execution of current
-        commands (this only triggers once the thread executes any python
-        bytecode)."""
+    def inject_exception(self, value: type) -> None:
+        """Raise an exception in the thread to stop execution.
+
+        Injects the exception into the remote thread. The exception is raised
+        once the thread executes any Python bytecode.
+
+        Args:
+            value: Exception class or instance to raise in the thread.
+        """
         if self.ident != threading.current_thread().ident:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(
                 ctypes.c_long(self.ident), ctypes.py_object(value)
@@ -965,7 +1160,15 @@ class Thread(QThread):
 
 
 class InputArea(QPlainTextEdit):
-    """Widget that is used for the input/output edit area of the console."""
+    """Text edit widget for the console's input/output area.
 
-    def insertFromMimeData(self, mime_data):
+    Delegates paste operations to the parent console widget.
+    """
+
+    def insertFromMimeData(self, mime_data: Any) -> None:
+        """Insert clipboard data by delegating to parent console.
+
+        Args:
+            mime_data: QMimeData containing clipboard content.
+        """
         return self.parent().insertFromMimeData(mime_data)
