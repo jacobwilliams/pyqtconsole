@@ -2,8 +2,9 @@
 
 import sys
 
-from pyqtconsole.console import PythonConsole
 from qtpy.QtWidgets import QApplication
+
+from pyqtconsole.console import PythonConsole
 
 welcome_msg = """Python Console v1.0
 Commands starting with ! are executed as shell commands
