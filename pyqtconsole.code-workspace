@@ -1,0 +1,23 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "files.trimTrailingWhitespace": true,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4,
+        "editor.trimAutoWhitespace": true,
+        "editor.formatOnSave": true
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.vscode-pylance",
+            "ms-python.flake8",
+            "charliermarsh.ruff",
+            "ms-python.isort"
+        ]
+    }
+}
