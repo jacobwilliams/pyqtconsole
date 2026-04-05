@@ -1,3 +1,9 @@
+"""Syntax highlighting for the console.
+
+Provides syntax highlighting for Python code and prompts using Pygments.
+Supports custom color schemes and formatting styles.
+"""
+
 from bisect import bisect_right
 
 from ipython_pygments_lexers import IPythonLexer as PythonLexer
@@ -45,7 +51,15 @@ def _find_token_style(style, token_type):
 
 
 def format(color, style=""):
-    """Return a QTextCharFormat with the given attributes."""
+    """Return a QTextCharFormat with the given attributes.
+
+    Args:
+        color: Color string or None. If None, no color is set.
+        style: Style string containing 'bold' and/or 'italic'. Defaults to "".
+
+    Returns:
+        QTextCharFormat configured with the specified color and style.
+    """
     _format = QTextCharFormat()
     if color is not None:
         _color = QColor(color)
@@ -81,6 +95,12 @@ def pygments_style_to_format(style_dict):
     """Convert a Pygments style dictionary entry to QTextCharFormat.
 
     Pygments style format: "#rrggbb bg:#rrggbb bold italic underline"
+
+    Args:
+        style_dict: Pygments style string or None.
+
+    Returns:
+        QTextCharFormat with parsed styles, or None if style_dict is empty.
     """
     if not style_dict:
         return None
@@ -131,12 +151,20 @@ def build_token_style_map(style_name, token_map):
 
 
 class PromptHighlighter:
+    """Syntax highlighter for console input/output prompts.
+
+    Applies formatting to prompt text (e.g., "IN [1]:" and "OUT[1]:") using
+    either custom formats or Pygments color schemes.
+    """
+
     def __init__(self, formats=None, pygments_style=None):
-        """Highlighter for console prompts.
+        """Initialize the prompt highlighter.
 
         Args:
-            formats: Custom format dictionary (legacy, overrides pygments_style)
-            pygments_style: Name of Pygments style to use (e.g., 'monokai')
+            formats: Custom format dictionary. If provided, overrides pygments_style.
+                Defaults to None.
+            pygments_style: Name of Pygments style to use (e.g., 'monokai').
+                Defaults to None.
         """
         self.styles = dict(STYLES)
         if pygments_style:
@@ -166,8 +194,12 @@ class PromptHighlighter:
         """Apply prompt formatting to entire text.
 
         Args:
-            text: The prompt text to highlight
-            is_output: True for output prompts, False for input prompts
+            text: The prompt text to highlight.
+            is_output: True for output prompts, False for input prompts.
+                Defaults to False.
+
+        Yields:
+            Tuple of (start_index, length, format) for highlighted regions.
         """
         if not text:
             return
@@ -180,26 +212,21 @@ class PromptHighlighter:
 
 
 class PythonHighlighter(QSyntaxHighlighter):
-    """Syntax highlighter for the Python language using Pygments.
+    """Syntax highlighter for Python code using Pygments.
 
-    Args:
-        document: The QTextDocument to highlight
-        formats: Custom format dictionary (legacy, overrides pygments_style)
-        pygments_style: Name of Pygments style to use (e.g., 'monokai',
-                       'vim', 'friendly'). Defaults to custom STYLES.
+    Provides context-aware syntax highlighting for Python code with support
+    for custom color schemes and Pygments styles.
     """
 
     def __init__(self, document, formats=None, pygments_style=None):
-        """Initialize the syntax highlighter.
+        """Initialize the Python syntax highlighter.
 
-        :param document: The doc to apply syntax highlighting to
-        :type document: QTextDocument
-        :param formats: Optional dict mapping style names to QTextCharFormat
-                        objects
-        :type formats: dict, None
-        :param pygments_style: Name of Pygments style to use (e.g., 'monokai',
-                       'vim', 'friendly'). Defaults to custom STYLES.
-        :type pygments_style: str, None
+        Args:
+            document: The QTextDocument to highlight.
+            formats: Optional dict mapping style names to QTextCharFormat objects.
+                If provided, overrides pygments_style. Defaults to None.
+            pygments_style: Name of Pygments style to use (e.g., 'monokai',
+                'vim', 'friendly'). Defaults to None, which uses custom STYLES.
         """
         QSyntaxHighlighter.__init__(self, document)
 
@@ -221,7 +248,11 @@ class PythonHighlighter(QSyntaxHighlighter):
         self._line_formats = {}
 
     def _build_custom_token_formats(self):
-        """Build token format map from custom STYLES dictionary."""
+        """Build token format map from custom STYLES dictionary.
+
+        Returns:
+            Dict mapping Token types to QTextCharFormat objects.
+        """
         styles = self.styles
         return {
             Token.Keyword: styles["keyword"],
@@ -257,7 +288,14 @@ class PythonHighlighter(QSyntaxHighlighter):
         }
 
     def _build_pygments_token_formats(self, style_name):
-        """Build token format map from Pygments style."""
+        """Build token format map from Pygments style.
+
+        Args:
+            style_name: Name of Pygments style (e.g., 'monokai').
+
+        Returns:
+            Dict mapping Token types to QTextCharFormat objects.
+        """
         style = get_style_by_name(style_name)
         token_formats = {}
 
@@ -291,11 +329,25 @@ class PythonHighlighter(QSyntaxHighlighter):
         Qt uses UTF-16 encoding internally, where some characters
         (like emoji) take 2 code units. This converts Python string
         indices to UTF-16 positions.
+
+        Args:
+            text: The text string.
+            position: Python string position (0-indexed).
+
+        Returns:
+            UTF-16 offset corresponding to the position.
         """
         return len(text[:position].encode("utf-16-le")) // 2
 
     def highlightBlock(self, text):
-        """Apply syntax highlighting using Pygments."""
+        """Apply syntax highlighting to a text block.
+
+        Called by Qt for each visible text block. Uses cached tokenization
+        results for efficient highlighting.
+
+        Args:
+            text: The text of the block to highlight.
+        """
         # Skip highlighting if the block is marked with NoHighlightData
         if isinstance(self.currentBlock().userData(), NoHighlightData):
             return
@@ -408,6 +460,12 @@ class PythonHighlighter(QSyntaxHighlighter):
         """Find the most specific format for a token type.
 
         Walks up the token hierarchy until a format is found.
+
+        Args:
+            token_type: Pygments Token type to find format for.
+
+        Returns:
+            QTextCharFormat if found, None otherwise.
         """
         current_type = token_type
         while current_type:

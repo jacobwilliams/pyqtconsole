@@ -1,3 +1,10 @@
+"""Interactive console widget for Qt applications.
+
+Provides BaseConsole and PythonConsole classes for embedding an interactive
+Python console with syntax highlighting, command history, auto-completion,
+and magic commands.
+"""
+
 import ctypes
 import subprocess
 import threading
@@ -36,7 +43,12 @@ except AttributeError:  # PyQt < 5.11
 
 
 class BaseConsole(QFrame):
-    """Base class for implementing a GUI console."""
+    """Base class for implementing a GUI console.
+
+    Provides the core functionality for a console widget including input/output
+    handling, command history, auto-completion, and magic commands. Subclasses
+    must implement abstract methods for execution and completion.
+    """
 
     def __init__(
         self,
@@ -48,34 +60,21 @@ class BaseConsole(QFrame):
         welcome_message=None,
         pygments_style=None,
     ):
-        """
+        """Initialize the base console.
 
-        :param parent: Parent widget (Defaults to None)
-        :type parent: QWidget, None
-        :param formats: Dictionary of text formats (Defaults to None)
-        :type formats: dict, None
-        :param shell_cmd_prefix: Enable shell commands (Defaults to False)
-                If set, commands starting with ``!`` will be treated
-                as system commands and executed using subprocess.
-                When False, no shell commands are accepted.
-                For example, if set to True, entering ``!ls -l`` will execute the
-                command ``ls -l`` in the system shell and display its output in
-                the console.
-        :type shell_cmd_prefix: bool
-        :param inprompt: Input prompt (Defaults to None)
-                If None, then 'IN [%d]: ' is used, where `%d` is formatted after
-                the current input line number.
-        :type inprompt: str, None
-        :param outprompt: Output prompt (Defaults to None)
-                If None, then 'OUT[%d]: ' is used, where `%d` is formatted after
-                the current input line number.
-        :type outprompt: str, None
-        :param welcome_message: Welcome message to display at startup
-                (Defaults to None). If provided, this message will be
-                displayed before the first prompt. Not syntax highlighted.
-        :type welcome_message: str, None
-        :param pygments_style: Name of Pygments style (Defaults to None)
-        :type pygments_style: str, None
+        Args:
+            parent: Parent widget. Defaults to None.
+            formats: Dictionary of text formats for custom styling. Defaults to None.
+            shell_cmd_prefix: If True, commands starting with ``!`` will be treated
+                as system commands and executed using subprocess. Defaults to False.
+            inprompt: Input prompt template. If None, uses 'IN [%d]: ' where %d
+                is the current line number. Defaults to None.
+            outprompt: Output prompt template. If None, uses 'OUT[%d]: ' where %d
+                is the current line number. Defaults to None.
+            welcome_message: Welcome message to display at startup. Not syntax
+                highlighted. Defaults to None.
+            pygments_style: Name of Pygments style (e.g., 'monokai', 'vim').
+                Defaults to None.
         """
         super().__init__(parent)
 
@@ -166,7 +165,11 @@ class BaseConsole(QFrame):
         self._show_ps()
 
     def out_prompt(self):
-        """return the (formatted) output prompt."""
+        """Get the formatted output prompt.
+
+        Returns:
+            Formatted output prompt string with current line number.
+        """
         try:
             # may depend on current line:
             return self._ps_out % self._current_line
@@ -176,20 +179,36 @@ class BaseConsole(QFrame):
             # take the template string
 
     def in_prompt(self):
-        """return the (formatted) input prompt."""
+        """Get the formatted input prompt.
+
+        Returns:
+            Formatted input prompt string with current line number.
+        """
         try:
             return self._ps1 % self._current_line
         except TypeError:
             return self._ps1
 
     def setFont(self, font):
-        """Set font (you should only use monospace!)."""
+        """Set the console font.
+
+        Args:
+            font: QFont to use. Should be monospace for best results.
+        """
         self.edit.document().setDefaultFont(font)
         self.edit.setFont(font)
         super().setFont(font)
 
     def eventFilter(self, edit, event):
-        """Intercepts events from the input control."""
+        """Filter events from the input control.
+
+        Args:
+            edit: Widget that generated the event.
+            event: QEvent to filter.
+
+        Returns:
+            True if event was handled, False otherwise.
+        """
         if event.type() == QEvent.KeyPress:
             return bool(self._filter_keyPressEvent(event))
         elif event.type() == QEvent.MouseButtonPress:
@@ -198,12 +217,23 @@ class BaseConsole(QFrame):
             return False
 
     def _textCursor(self):
+        """Get the text cursor from the edit widget.
+
+        Returns:
+            QTextCursor for the edit area.
+        """
         return self.edit.textCursor()
 
     def _setTextCursor(self, cursor):
+        """Set the text cursor in the edit widget.
+
+        Args:
+            cursor: QTextCursor to set.
+        """
         self.edit.setTextCursor(cursor)
 
     def ensureCursorVisible(self):
+        """Ensure the cursor is visible in the edit widget."""
         self.edit.ensureCursorVisible()
 
     def _update_ps(self, _more):
@@ -582,16 +612,26 @@ class BaseConsole(QFrame):
     def _selected_text(cursor):
         """Get sanitized selectedText() from a cursor.
 
-        :param cursor:
-        :type cursor: QTextCursor
-        :rtype: str
+        On a multi-line command, Qt includes a paragraph separator
+        character (U+2029) instead of a newline. This method replaces
+        it with a proper newline.
+
+        Args:
+            cursor: QTextCursor to get selected text from.
+
+        Returns:
+            Selected text with paragraph separators replaced by newlines.
         """
         # On a multi-line command, Qt will include this 'paragraph separator'
         # character instead of a newline (#109):
         return cursor.selectedText().replace("\u2029", "\n")
 
     def input_buffer(self):
-        """Retrieve current input buffer in string form."""
+        """Retrieve current input buffer in string form.
+
+        Returns:
+            String containing all text entered after the last prompt.
+        """
         # Use cursor selection to properly handle multi-byte
         # characters like emojis
         cursor = QTextCursor(self.edit.document())
@@ -600,7 +640,11 @@ class BaseConsole(QFrame):
         return self._selected_text(cursor)
 
     def cursor_offset(self):
-        """Get current cursor index within input buffer."""
+        """Get current cursor index within input buffer.
+
+        Returns:
+            Integer offset of cursor position from start of input buffer.
+        """
         # Extract actual text to get proper string index for multi-byte characters
         cursor = QTextCursor(self.edit.document())
         cursor.setPosition(self._prompt_pos)
@@ -609,15 +653,23 @@ class BaseConsole(QFrame):
         return len(selected_text)
 
     def _get_line_until_cursor(self):
-        """Get current line of input buffer, up to cursor position."""
+        """Get current line of input buffer up to cursor position.
+
+        Returns:
+            String containing text from line start to cursor.
+        """
         return self.input_buffer()[: self.cursor_offset()].rsplit("\n", 1)[-1]
 
     def _get_line_after_cursor(self):
-        """Get current line of input buffer, after cursor position."""
+        """Get current line of input buffer after cursor position.
+
+        Returns:
+            String containing text from cursor to line end.
+        """
         return self.input_buffer()[self.cursor_offset() :].split("\n", 1)[0]
 
     def clear_input_buffer(self):
-        """Clear input buffer."""
+        """Clear the current input buffer."""
         cursor = self._textCursor()
         cursor.setPosition(self._prompt_pos)
         cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
@@ -625,7 +677,13 @@ class BaseConsole(QFrame):
         self._setTextCursor(cursor)
 
     def insert_input_text(self, text, show_ps=True):
-        """Insert text into input buffer."""
+        """Insert text into the input buffer.
+
+        Args:
+            text: Text string to insert at cursor position.
+            show_ps: If True, show continuation prompts for multi-line input.
+                Defaults to True.
+        """
         self._keep_cursor_in_buffer()
         self.ensureCursorVisible()
 
@@ -643,15 +701,22 @@ class BaseConsole(QFrame):
             self._insert_prompt_text("\n" * text.count("\n"), is_output=False)
 
     def set_auto_complete_mode(self, mode):
+        """Set the auto-completion display mode.
+
+        Args:
+            mode: COMPLETE_MODE.DROPDOWN or COMPLETE_MODE.INLINE.
+        """
         if self.auto_complete:
             self.auto_complete.mode = mode
 
     def process_input(self, source):
-        """Handle a new source snippet confirmed by the user.
+        """Handle and execute a source snippet confirmed by the user.
 
-        If `shell_cmd_prefix` is set and the source starts with this prefix,
-        it is treated as a system command and executed using subprocess.
-        Otherwise, it is passed to the interpreter for execution.
+        Processes magic commands (starting with %), shell commands (if enabled),
+        or Python code. Updates command history and prompts accordingly.
+
+        Args:
+            source: Source code string to process and execute.
         """
         self._last_input = source
 
@@ -681,7 +746,11 @@ class BaseConsole(QFrame):
                 self._update_prompt_pos()
 
     def _run_system_command(self, command):
-        """Execute a system command and display its output."""
+        """Execute a system command and display its output.
+
+        Args:
+            command: Shell command string to execute.
+        """
         try:
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             # Display output with OUT prompt
@@ -792,9 +861,19 @@ class BaseConsole(QFrame):
             self.window().close()
 
     def set_tab(self, chars):
+        """Set the tab character string.
+
+        Args:
+            chars: String to use for tab indentation.
+        """
         self._tab_chars = chars
 
     def ctrl_d_exits_console(self, b):
+        """Set whether Ctrl+D exits the console.
+
+        Args:
+            b: True to enable Ctrl+D exit, False to disable.
+        """
         self._ctrl_d_exits = b
 
     def clear(self):
@@ -811,27 +890,52 @@ class BaseConsole(QFrame):
 
     @abstractmethod
     def exit(self):
+        """Exit the console. Must be implemented by subclasses."""
         pass
 
     @abstractmethod
     def _executing(self):
+        """Check if code is currently executing. Must be implemented by subclasses.
+
+        Returns:
+            True if executing, False otherwise.
+        """
         pass
 
     @abstractmethod
     def _cancel(self):
+        """Cancel current execution. Must be implemented by subclasses."""
         pass
 
     @abstractmethod
     def _run_source(self, source):
+        """Run source code. Must be implemented by subclasses.
+
+        Args:
+            source: Source code string to run.
+        """
         pass
 
     @abstractmethod
     def get_completions(self, line):
+        """Get code completions. Must be implemented by subclasses.
+
+        Args:
+            line: Line of code to get completions for.
+
+        Returns:
+            List of completion strings.
+        """
         return ["No completion support available"]
 
 
 class PythonConsole(BaseConsole):
-    """Interactive python GUI console."""
+    """Interactive Python console widget.
+
+    Provides a fully functional Python console with syntax highlighting,
+    auto-completion using Jedi, command history, and magic commands.
+    Code can be executed in the main thread or in a separate thread.
+    """
 
     def __init__(
         self,
@@ -844,6 +948,20 @@ class PythonConsole(BaseConsole):
         welcome_message=None,
         pygments_style=None,
     ):
+        """Initialize the Python console.
+
+        Args:
+            parent: Parent widget. Defaults to None.
+            locals: Dictionary of local variables for the interpreter namespace.
+                Defaults to None.
+            formats: Dictionary of text formats for custom styling. Defaults to None.
+            shell_cmd_prefix: If True, enable shell commands with ! prefix.
+                Defaults to False.
+            inprompt: Input prompt template. Defaults to None.
+            outprompt: Output prompt template. Defaults to None.
+            welcome_message: Welcome message to display at startup. Defaults to None.
+            pygments_style: Name of Pygments style (e.g., 'monokai'). Defaults to None.
+        """
         super().__init__(
             parent,
             formats=formats,
@@ -882,19 +1000,36 @@ class PythonConsole(BaseConsole):
         self.pbar.update()
 
     def _executing(self):
+        """Check if the interpreter is currently executing code.
+
+        Returns:
+            True if code is executing, False otherwise.
+        """
         return self.interpreter.executing()
 
     def _cancel(self):
+        """Cancel current code execution by injecting KeyboardInterrupt."""
         if self._thread:
             self._thread.inject_exception(KeyboardInterrupt)
             # wake up thread in case it is currently waiting on input:
             self.stdin.flush()
 
     def _run_source(self, source):
+        """Run Python source code in the interpreter.
+
+        Args:
+            source: Python source code string to execute.
+
+        Returns:
+            True if more input is needed (incomplete statement), False otherwise.
+        """
         return self.interpreter.runsource(source, symbol="multi")
 
     def exit(self):
-        """Exit interpreter."""
+        """Exit the console and cleanup resources.
+
+        Stops execution thread if running and closes the console.
+        """
         if self._thread:
             self._thread.exit()
             self._thread.wait()
@@ -902,7 +1037,14 @@ class PythonConsole(BaseConsole):
         self._close()
 
     def get_completions(self, line):
-        """Get completions. Used by the ``autocomplete`` extension."""
+        """Get code completions using Jedi.
+
+        Args:
+            line: Line of code to get completions for.
+
+        Returns:
+            List of completion name strings.
+        """
         script = jedi.Interpreter(line, [self.interpreter.locals])
 
         try:
@@ -914,50 +1056,89 @@ class PythonConsole(BaseConsole):
         return [comp.name for comp in comps]
 
     def push_local_ns(self, name, value):
-        """Set a variable in the local namespace."""
+        """Set a variable in the interpreter's local namespace.
+
+        Args:
+            name: Variable name string.
+            value: Value to assign to the variable.
+        """
         self.interpreter.locals[name] = value
 
     def eval_in_thread(self):
-        """Start a thread in which code snippets will be executed."""
+        """Start a thread in which code snippets will be executed.
+
+        Creates and starts an execution thread that runs code in the background.
+
+        Returns:
+            Thread object that will execute code snippets.
+        """
         self._thread = Thread()
         self.interpreter.moveToThread(self._thread)
         self.interpreter.exec_signal.connect(self.interpreter.exec_, QueuedConnection)
         return self._thread
 
     def eval_queued(self):
-        """Setup connections to execute code snippets in later mainloop
-        iterations in the main thread."""
+        """Execute code snippets in later mainloop iterations in main thread.
+
+        Sets up queued connections to execute code in the main event loop.
+
+        Returns:
+            The signal-slot connection.
+        """
         return self.interpreter.exec_signal.connect(
             self.interpreter.exec_, QueuedConnection
         )
 
     def eval_executor(self, spawn):
-        """Exec snippets using the given executor function (e.g.
-        ``gevent.spawn``)."""
+        """Execute code using a custom executor function.
+
+        Sets up code execution using the given executor function
+        (e.g., gevent.spawn for async execution).
+
+        Args:
+            spawn: Executor function that takes (callable, args) and spawns execution.
+
+        Returns:
+            The signal-slot connection.
+        """
         return self.interpreter.exec_signal.connect(
             lambda line: spawn(self.interpreter.exec_, line)
         )
 
 
 class Thread(QThread):
-    """Thread that runs an event loop and exposes thread ID as ``.ident``."""
+    """Thread that runs a Qt event loop.
+
+    Exposes the thread ID as the `ident` attribute and allows
+    injecting exceptions to interrupt execution.
+    """
 
     def __init__(self, parent=None):
+        """Initialize and start the thread.
+
+        Args:
+            parent: Parent QObject. Defaults to None.
+        """
         super().__init__(parent)
         self.ready = threading.Event()
         self.start()
         self.ready.wait()
 
     def run(self):
-        """Run Qt event dispatcher within the thread."""
+        """Run the Qt event dispatcher within the thread."""
         self.ident = threading.current_thread().ident
         self.ready.set()
         self.exec_()
 
     def inject_exception(self, value):
-        """Raise exception in remote thread to stop execution of current
-        commands (this only triggers once the thread executes any python
-        bytecode)."""
+        """Raise an exception in the thread to stop execution.
+
+        Injects the exception into the remote thread. The exception is raised
+        once the thread executes any Python bytecode.
+
+        Args:
+            value: Exception class or instance to raise in the thread.
+        """
         if self.ident != threading.current_thread().ident:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(
                 ctypes.c_long(self.ident), ctypes.py_object(value)
@@ -965,7 +1146,15 @@ class Thread(QThread):
 
 
 class InputArea(QPlainTextEdit):
-    """Widget that is used for the input/output edit area of the console."""
+    """Text edit widget for the console's input/output area.
+
+    Delegates paste operations to the parent console widget.
+    """
 
     def insertFromMimeData(self, mime_data):
+        """Insert clipboard data by delegating to parent console.
+
+        Args:
+            mime_data: QMimeData containing clipboard content.
+        """
         return self.parent().insertFromMimeData(mime_data)

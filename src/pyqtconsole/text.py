@@ -1,4 +1,21 @@
+"""Text formatting utilities for the console.
+
+Provides functions for finding common substrings and formatting text output
+in columns for display in the console.
+"""
+
+
 def long_substr(data):
+    """Find the longest common substring across all strings in data.
+
+    Args:
+        data: List of strings to find common substring in.
+
+    Returns:
+        The longest substring common to all strings in data.
+        Returns empty string if no common substring found.
+        If data contains only one string, returns that string.
+    """
     substr = ""
     if len(data) > 1 and len(data[0]) > 0:
         for i in range(len(data[0])):
@@ -12,6 +29,15 @@ def long_substr(data):
 
 
 def is_substr(find, data):
+    """Check if a substring exists in all strings in data.
+
+    Args:
+        find: Substring to search for.
+        data: List of strings to search in.
+
+    Returns:
+        True if find is a substring of all strings in data, False otherwise.
+    """
     if len(data) < 1 and len(find) < 1:
         return False
     return all(find in d for d in data)
@@ -33,6 +59,15 @@ default_opts = {
 
 
 def get_option(key, options):
+    """Get an option value from options dict or fall back to default.
+
+    Args:
+        key: The option key to retrieve.
+        options: Dictionary of user-provided options.
+
+    Returns:
+        The value from options dict if present, otherwise the default value.
+    """
     return options.get(key, default_opts.get(key))
 
 
@@ -45,24 +80,36 @@ def columnize(
     lineprefix="",
     opts=None,
 ):
-    """Return a list of strings as a compact set of columns arranged
-    horizontally or vertically.
+    """Format a list of strings as a compact set of columns.
 
-    For example, for a line width of 4 characters (arranged vertically):
-        ['1', '2,', '3', '4'] => '1  3\n2  4\n'
+    Arranges the strings either vertically (top-to-bottom, left-to-right)
+    or horizontally (left-to-right, top-to-bottom) within the given display width.
+    Each column is only as wide as necessary.
 
-    or arranged horizontally:
-        ['1', '2,', '3', '4'] => '1  2\n3  4\n'
+    Args:
+        array: List or tuple of strings to format into columns.
+        displaywidth: Maximum width for the output in characters. Defaults to 80.
+        colsep: String separator between columns. Defaults to "  ".
+        arrange_vertical: If True, arrange items vertically (top-to-bottom).
+            If False, arrange horizontally (left-to-right). Defaults to True.
+        ljust: If True, left-justify text in columns. If False, right-justify.
+            Defaults to True.
+        lineprefix: String to prepend to each line. Defaults to "".
+        opts: Optional dict of additional formatting options. Defaults to None.
 
-    Each column is only as wide as necessary.  By default, columns are
-    separated by two spaces - one was not legible enough. Set "colsep"
-    to adjust the string separate columns. Set `displaywidth' to set
-    the line width.
+    Returns:
+        Formatted string with items arranged in columns.
 
-    Normally, consecutive items go down from the top to bottom from
-    the left-most column to the right-most. If "arrange_vertical" is
-    set false, consecutive items will go across, left to right, top to
-    bottom."""
+    Raises:
+        TypeError: If array is not a list or tuple.
+
+    Examples:
+        For a line width of 4 characters (arranged vertically):
+            ['1', '2,', '3', '4'] => '1  3\\n2  4\\n'
+
+        Or arranged horizontally:
+            ['1', '2,', '3', '4'] => '1  2\\n3  4\\n'
+    """
     if opts is None:
         opts = {}
     if not isinstance(array, (list, tuple)):
