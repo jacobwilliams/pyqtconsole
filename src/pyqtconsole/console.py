@@ -55,7 +55,7 @@ class BaseConsole(QFrame):
         self,
         parent: Optional["QFrame"] = None,
         formats: Optional[dict[str, Any]] = None,
-        shell_cmd_prefix: bool = False,
+        shell_cmd_prefix: bool = True,
         inprompt: Optional[str] = None,
         outprompt: Optional[str] = None,
         welcome_message: Optional[str] = None,
@@ -67,7 +67,7 @@ class BaseConsole(QFrame):
             parent: Parent widget. Defaults to None.
             formats: Dictionary of text formats for custom styling. Defaults to None.
             shell_cmd_prefix: If True, commands starting with ``!`` will be treated
-                as system commands and executed using subprocess. Defaults to False.
+                as system commands and executed using subprocess. Defaults to True.
             inprompt: Input prompt template. If None, uses 'IN [%d]: ' where %d
                 is the current line number. Defaults to None.
             outprompt: Output prompt template. If None, uses 'OUT[%d]: ' where %d
@@ -963,7 +963,7 @@ class PythonConsole(BaseConsole):
         parent: Optional["QFrame"] = None,
         locals: Optional[dict[str, Any]] = None,
         formats: Optional[dict[str, Any]] = None,
-        shell_cmd_prefix: bool = False,
+        shell_cmd_prefix: bool = True,
         inprompt: Optional[str] = None,
         outprompt: Optional[str] = None,
         welcome_message: Optional[str] = None,
@@ -977,7 +977,7 @@ class PythonConsole(BaseConsole):
                 Defaults to None.
             formats: Dictionary of text formats for custom styling. Defaults to None.
             shell_cmd_prefix: If True, enable shell commands with ! prefix.
-                Defaults to False.
+                Defaults to True.
             inprompt: Input prompt template. Defaults to None.
             outprompt: Output prompt template. Defaults to None.
             welcome_message: Welcome message to display at startup. Defaults to None.
