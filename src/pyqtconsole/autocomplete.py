@@ -146,21 +146,17 @@ class AutoComplete(QObject):
         Returns:
             The partial word being completed, or empty string.
         """
-        word_being_completed = _buffer.strip()
-
         # Check if buffer ends with a separator - if so, we're starting fresh
-        if _buffer.endswith(" ") or _buffer.endswith("."):
-            word_being_completed = ""
-        # Check for . operator (attribute access)
-        elif "." in _buffer and not _buffer.startswith("."):
-            idx = _buffer.rfind(".") + 1
-            word_being_completed = _buffer[idx:].strip()
-        # Check for space separator (e.g., "from os import abc")
-        elif " " in _buffer:
-            idx = _buffer.rfind(" ") + 1
-            word_being_completed = _buffer[idx:].strip()
+        if not _buffer or _buffer[-1] in (" ", "."):
+            return ""
 
-        return word_being_completed
+        # Find the last separator (space or dot)
+        dot_idx = _buffer.rfind(".")
+        space_idx = _buffer.rfind(" ")
+        sep_idx = max(dot_idx, space_idx)
+
+        # Return word after the last separator
+        return _buffer[sep_idx + 1 :].strip() if sep_idx >= 0 else _buffer.strip()
 
     def init_completion_list(self, words: list[str]) -> None:
         """Initialize the QCompleter with a list of completion words.

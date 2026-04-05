@@ -18,31 +18,24 @@ def long_substr(data: list[str]) -> str:
         Returns empty string if no common substring found.
         If data contains only one string, returns that string.
     """
-    substr = ""
-    if len(data) > 1 and len(data[0]) > 0:
-        for i in range(len(data[0])):
-            for j in range(len(data[0]) - i + 1):
-                if j > len(substr) and is_substr(data[0][i : i + j], data):
-                    substr = data[0][i : i + j]
-    elif len(data) == 1:
-        substr = data[0]
+    if not data:
+        return ""
+    if len(data) == 1:
+        return data[0]
 
-    return substr
+    # Use the shortest string as reference for efficiency
+    shortest = min(data, key=len)
+    if not shortest:
+        return ""
 
+    # Start with longest possible substrings and work down
+    for length in range(len(shortest), 0, -1):
+        for start in range(len(shortest) - length + 1):
+            candidate = shortest[start : start + length]
+            if all(candidate in s for s in data):
+                return candidate
 
-def is_substr(find: str, data: list[str]) -> bool:
-    """Check if a substring exists in all strings in data.
-
-    Args:
-        find: Substring to search for.
-        data: List of strings to search in.
-
-    Returns:
-        True if find is a substring of all strings in data, False otherwise.
-    """
-    if len(data) < 1 and len(find) < 1:
-        return False
-    return all(find in d for d in data)
+    return ""
 
 
 default_opts: dict[str, Any] = {
